@@ -1,0 +1,5 @@
+LIBRARY "network"
+EXPORTS
+    free_traceroute_array
+    get_traceroute_array
+    ping

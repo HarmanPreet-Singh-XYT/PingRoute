@@ -1,0 +1,10 @@
+^C:\PROJECTS\PINGROUTE\NETWORK_LIBRARY\CMAKEFILES\ED682108502D26677E772DC777111ECC\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Projects/pingroute/network_library -BC:/Projects/pingroute/network_library --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Projects/pingroute/network_library/NetworkLib.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
