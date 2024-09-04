@@ -9,19 +9,24 @@ class LeftData extends StatefulWidget {
   final List<Map<String, dynamic>> deepStats;
   final int interval;
   final bool isRunning;
-  final String dataType = '';
   @override
   State<LeftData> createState() => _LeftDataState();
 }
 
 class _LeftDataState extends State<LeftData> {
+  String dataType = 'lt';
+  setGraphType(String type){
+      setState(() {
+        dataType = type;
+      });
+  }
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Container(
         constraints: BoxConstraints(minWidth: 1200),
         width: MediaQuery.of(context).size.width*0.9,
-        height: MediaQuery.of(context).size.height*0.45,
+        height: MediaQuery.of(context).size.height*0.50,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -29,7 +34,7 @@ class _LeftDataState extends State<LeftData> {
               constraints: BoxConstraints(minWidth: 655),
               clipBehavior: Clip.hardEdge,
               width: MediaQuery.of(context).size.width*0.49,
-              height: MediaQuery.of(context).size.height*0.45,
+              height: MediaQuery.of(context).size.height*0.50,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(width: 2,color:const Color(0xff379777)),
@@ -397,15 +402,25 @@ class _LeftDataState extends State<LeftData> {
               ),
             ),
             Container(
+              clipBehavior: Clip.hardEdge,
               width: MediaQuery.of(context).size.width*0.4,
-              height: MediaQuery.of(context).size.height*0.45,
+              height: MediaQuery.of(context).size.height*0.50,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color:const Color(0xff45474B)
               ),
               child: Column(
                 children: [
-                  if(widget.deepStats.length > 0) Graph(data:widget.deepStats.last,dataType:widget.dataType,interval: widget.interval,isRunning:widget.isRunning)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('pl'), child:Text('Packet Loss',style: TextStyle(color: Colors.white,fontWeight:dataType=='pl' ? FontWeight.bold : FontWeight.normal,fontSize:dataType=='pl' ? 16 : 14),))),
+                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('lt'), child:Text('Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='lt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='lt' ? 16 : 14)))),
+                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('jt'), child:Text('Jitter',style: TextStyle(color: Colors.white,fontWeight: dataType=='jt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='jt' ? 16 : 14)))),
+                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('alt'), child:Text('Average Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='alt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='alt' ? 16 : 14)))),
+                    ],
+                  ),
+                  if(widget.deepStats.isNotEmpty) Graph(data:widget.deepStats.last,dataType:dataType,interval: widget.interval,isRunning:widget.isRunning),
                 ],
               ),
             ),

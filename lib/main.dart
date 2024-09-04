@@ -66,17 +66,30 @@ void useIsolate(List<dynamic> args) async {
 //   }
 //   resultPort.send(results);
 // }
-double calculateJitter(List<Map<String, dynamic>> hops) {
-  if (hops.length < 2) {
-    // Not enough data to calculate jitter
+
+
+double calculateCumulativeJitter(List<Map<String, dynamic>> hops, int targetIndex) {
+  if (targetIndex < 1 || targetIndex >= hops.length) {
+    // Not enough data to calculate jitter or invalid targetIndex
     return 0.0;
   }
 
-  // Extract values from hops
-  List values = hops.map((hop) => hop['value'].toDouble()).toList();
+  // Collect all ping values up to the target index
+  List<int> values = [];
+  for (int i = 0; i <= targetIndex; i++) {
+    List<Map<String, dynamic>> pings = hops[i]['pings'];
+    for (var ping in pings) {
+      values.add(ping['value'] as int);
+    }
+  }
+
+  if (values.length < 2) {
+    // Not enough pings to calculate jitter
+    return 0.0;
+  }
 
   // Calculate delay differences
-  List<double> delays = [];
+  List<int> delays = [];
   for (int i = 1; i < values.length; i++) {
     delays.add((values[i] - values[i - 1]).abs());
   }
@@ -86,8 +99,10 @@ double calculateJitter(List<Map<String, dynamic>> hops) {
       ? delays.reduce((a, b) => a + b) / delays.length
       : 0.0;
 
-  return jitter;
+  return double.parse(jitter.toStringAsFixed(2));
 }
+
+
 String getCurrentTime() {
   final now = DateTime.now();
   final formattedTime = DateFormat('mm:ss').format(now);
@@ -166,6 +181,7 @@ class _MainAppState extends State<MainApp> {
        }
 
        ipStats[y]['last'] = tempPings[y];
+       //packet loss calculation and update
       int validPacketloss = 0;
 
       // Count the number of lost packets
@@ -179,8 +195,8 @@ class _MainAppState extends State<MainApp> {
       int calculatedPL = (validPacketloss * 100 / totalPackets).round();
 
       // Update deepStats and ipStats
-      deepStats[y]['pl'].add({'time': time, 'value': calculatedPL});
-      ipStats[y]['pl'] = calculatedPL;
+      deepStats[y]['pl'].add({'time': time, 'value': calculatedPL <= 100 ? calculatedPL : 100});
+      ipStats[y]['pl'] = calculatedPL <= 100 ? calculatedPL : 100;
          // Calculate average excluding -1 values
        num totalAVG = 0;
         int count = 0;
@@ -190,8 +206,13 @@ class _MainAppState extends State<MainApp> {
            count++;
          }
        });
-       num avgPing = (totalAVG/count).round();
-       
+      double jitter = calculateCumulativeJitter(deepStats, 2);
+      deepStats[y]['jitter'].add({'time':time,'value':jitter});
+
+
+       num avgPing = count > 0 ? (totalAVG / count).round() : 0;
+       deepStats[y]['avg'].add({'time': time, 'value': avgPing});
+
        setState(() {
          ipStats[y]['avg'] = avgPing;
        });

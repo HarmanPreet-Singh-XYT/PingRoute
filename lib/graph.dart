@@ -20,11 +20,25 @@ class _GraphState extends State<Graph> {
     Colors.blue,
   ];
 
+  double maxLatency = 0;
+  double maxAvgLatency = 0;
+  double maxJitter = 5;
+
   bool showAvg = false;
   final limitCount = 11;
-  final dataPoints = <FlSpot>[];
-  final dataPointTime = <String>[];
+  //points for packet loss
+  final dataPointsPL = <FlSpot>[];
+  final dataPointTimePL = <String>[];
+  final dataPointsLatency = <FlSpot>[];
+  final dataPointTimeLatency = <String>[];
+  final dataPointsAvgLatency = <FlSpot>[];
+  final dataPointTimeAvgLatency = <String>[];
+  final dataPointsJitter = <FlSpot>[];
+  final dataPointTimeJitter = <String>[];
   double xValue = 0;
+  double xLatency = 0;
+  double xAvgLatency = 0;
+  double xJitter = 0;
 
   late Timer timer;
 
@@ -34,23 +48,61 @@ class _GraphState extends State<Graph> {
     timer = Timer.periodic(Duration(milliseconds: widget.interval), (timer) {
       setState(() {
         if(widget.isRunning){
+          //check data
           double yValue = widget.data['pl'].length > 0
             ? double.parse('${widget.data['pl'].last['value']}')
             : 0;
+          double yLatency = widget.data['pings'].length > 0
+            ? double.parse('${widget.data['pings'].last['value']}')
+            : 0;
+          double yAvgLatency = widget.data['avg'].length > 0
+            ? double.parse('${widget.data['avg'].last['value']}')
+            : 0;
+          double yJitter = widget.data['jitter'].length > 0
+            ? double.parse('${widget.data['jitter'].last['value']}')
+            : 0;
 
-          if (dataPoints.length >= limitCount) {
-            dataPoints.removeAt(0);
+          // set max values
+          if(yLatency > maxLatency) maxLatency=yLatency+20;
+          if(yAvgLatency > maxAvgLatency) maxAvgLatency=yAvgLatency+20;
+          if(yJitter > maxJitter) maxJitter=yJitter+20;
+
+          // remove first element (remove oldest points)
+          if (dataPointsPL.length >= limitCount) {
+            dataPointsPL.removeAt(0);
           }
-          dataPoints.add(FlSpot(xValue, yValue));
-          dataPointTime.add('${widget.data['pl'].last['time']}');
+          if (dataPointsLatency.length >= limitCount) {
+            dataPointsLatency.removeAt(0);
+          }
+          if (dataPointsAvgLatency.length >= limitCount) {
+            dataPointsAvgLatency.removeAt(0);
+          }
+          if (dataPointsJitter.length >= limitCount) {
+            dataPointsJitter.removeAt(0);
+          }
+
+          // add new points
+          dataPointsPL.add(FlSpot(xValue, yValue));
+          dataPointTimePL.add('${widget.data['pl'].last['time']}');
+          dataPointsLatency.add(FlSpot(xLatency, yLatency));
+          dataPointTimeLatency.add('${widget.data['pings'].last['time']}');
+          dataPointsAvgLatency.add(FlSpot(xAvgLatency, yAvgLatency));
+          dataPointTimeAvgLatency.add('${widget.data['avg'].last['time']}');
+          dataPointsJitter.add(FlSpot(xJitter, yJitter));
+          dataPointTimeJitter.add('${widget.data['jitter'].last['time']}');
+          
+          //increment for next points
           xValue += 1;
+          xLatency += 1;
+          xAvgLatency += 1;
+          xJitter +=1;
         }else{
           timer.cancel();
         }
       });
     });
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -65,13 +117,17 @@ class _GraphState extends State<Graph> {
               bottom: 12,
             ),
             child: LineChart(
-              showAvg ? avgData() : mainData(),
+              widget.dataType=='pl' ? packetLoss() : widget.dataType=='jt' ? jitterChart() : widget.dataType=='lt' ? latencyChart() : avgLatencyChart(),
+              duration:Duration.zero
             ),
+            
           ),
         ),
       ],
     );
   }
+
+  //----------------------------------------------------------------------------------------------Packet Loss------------------------------------------------------------
 
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(
@@ -82,8 +138,8 @@ class _GraphState extends State<Graph> {
 
     int index = value.toInt();
     String text ='';
-    if (index >= 0 && index < dataPointTime.length) {
-      text = dataPointTime[index]; // Use the timestamp at the corresponding index
+    if (index >= 0 && index < dataPointTimePL.length) {
+      text = dataPointTimePL[index]; // Use the timestamp at the corresponding index
     }
     return SideTitleWidget(
       axisSide: meta.axisSide,
@@ -105,8 +161,8 @@ class _GraphState extends State<Graph> {
     }
   }
 
-  LineChartData mainData() {
-    double maxX = dataPoints.isNotEmpty ? dataPoints.last.x : 0;
+  LineChartData packetLoss() {
+    double maxX = dataPointsPL.isNotEmpty ? dataPointsPL.last.x : 0;
     double minX = maxX - (limitCount - 1).toDouble();
 
     return LineChartData(
@@ -163,13 +219,13 @@ class _GraphState extends State<Graph> {
       maxY: 100,
       lineBarsData: [
         LineChartBarData(
-          show: dataPoints.isNotEmpty,
-          spots: dataPoints,
+          show: dataPointsPL.isNotEmpty,
+          spots: dataPointsPL,
           isCurved: true,
           gradient: LinearGradient(
             colors: gradientColors,
           ),
-          barWidth: 5,
+          barWidth: 4,
           isStrokeCapRound: true,
           dotData: const FlDotData(
             show: false,
@@ -187,81 +243,110 @@ class _GraphState extends State<Graph> {
     );
   }
 
-  LineChartData avgData() {
+
+
+  //--------------------------------------------------------------------------------------------Latency------------------------------------------------------------------------------------------------------
+
+  Widget bottomTitleWidgetsLatency(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+      color: Colors.white,
+    );
+
+    int index = value.toInt();
+    String text = '';
+    if (index >= 0 && index < dataPointTimeLatency.length) {
+      text = dataPointTimeLatency[index]; // Use the timestamp at the corresponding index
+    }
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      child: Text(text, style: style),
+    );
+  }
+
+  Widget leftTitleWidgetsLatency(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 12,
+      color: Colors.white,
+    );
+
+     if (value >= 0 && value <= maxLatency) {
+      return Text('${value.toInt()}ms', style: style, textAlign: TextAlign.left);
+    } else {
+      return Container();
+    }
+  }
+
+  LineChartData latencyChart() {
+    double maxX = dataPointsLatency.isNotEmpty ? dataPointsLatency.last.x : 0;
+    double minX = maxX - (limitCount - 1).toDouble();
+    // double maxY = dataPointsLatency.isNotEmpty
+    //     ? dataPointsLatency.map((e) => e.y).reduce((a, b) => a > b ? a : b)
+    //     : 100; // Adjust based on expected maximum latency
+
     return LineChartData(
-      lineTouchData: const LineTouchData(enabled: false),
       gridData: FlGridData(
         show: true,
-        drawHorizontalLine: true,
+        drawVerticalLine: true,
+        horizontalInterval: maxLatency/10, // Adjust based on expected latency range
         verticalInterval: 1,
-        horizontalInterval: 1,
-        getDrawingVerticalLine: (value) {
+        getDrawingHorizontalLine: (value) {
           return const FlLine(
-            color: Color(0xff37434d),
+            color: Colors.lightBlue,
             strokeWidth: 1,
           );
         },
-        getDrawingHorizontalLine: (value) {
+        getDrawingVerticalLine: (value) {
           return const FlLine(
-            color: Color(0xff37434d),
+            color: Colors.lightBlue,
             strokeWidth: 1,
           );
         },
       ),
       titlesData: FlTitlesData(
         show: true,
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 30,
-            getTitlesWidget: bottomTitleWidgets,
             interval: 1,
+            getTitlesWidget: bottomTitleWidgetsLatency,
           ),
         ),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            getTitlesWidget: leftTitleWidgets,
+            interval: maxLatency/5, // Adjust based on expected latency range
+            getTitlesWidget: leftTitleWidgetsLatency,
             reservedSize: 42,
-            interval: 1,
           ),
-        ),
-        topTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        rightTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
         ),
       ),
       borderData: FlBorderData(
         show: true,
         border: Border.all(color: const Color(0xff37434d)),
       ),
-      minX: 0,
-      maxX: limitCount.toDouble() - 1,
+      minX: minX,
+      maxX: maxX,
       minY: 0,
-      maxY: 6,
+      maxY: maxLatency,
       lineBarsData: [
         LineChartBarData(
-          spots: const [
-            FlSpot(0, 3.44),
-            FlSpot(2.6, 3.44),
-            FlSpot(4.9, 3.44),
-            FlSpot(6.8, 3.44),
-            FlSpot(8, 3.44),
-            FlSpot(9.5, 3.44),
-            FlSpot(11, 3.44),
-          ],
+          show: dataPointsLatency.isNotEmpty,
+          spots: dataPointsLatency,
           isCurved: true,
           gradient: LinearGradient(
-            colors: [
-              ColorTween(begin: gradientColors[0], end: gradientColors[1])
-                  .lerp(0.2)!,
-              ColorTween(begin: gradientColors[0], end: gradientColors[1])
-                  .lerp(0.2)!,
-            ],
+            colors: gradientColors,
           ),
-          barWidth: 5,
+          barWidth: 4,
           isStrokeCapRound: true,
           dotData: const FlDotData(
             show: false,
@@ -269,14 +354,243 @@ class _GraphState extends State<Graph> {
           belowBarData: BarAreaData(
             show: true,
             gradient: LinearGradient(
-              colors: [
-                ColorTween(begin: gradientColors[0], end: gradientColors[1])
-                    .lerp(0.2)!
-                    .withOpacity(0.1),
-                ColorTween(begin: gradientColors[0], end: gradientColors[1])
-                    .lerp(0.2)!
-                    .withOpacity(0.1),
-              ],
+              colors: gradientColors
+                  .map((color) => color.withOpacity(0.3))
+                  .toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  //-----------------------------------------------------------------------------Jitter-----------------------------------------------------------------------------------
+  Widget bottomTitleWidgetsJitter(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+      color: Colors.white,
+    );
+
+    int index = value.toInt();
+    String text = '';
+    if (index >= 0 && index < dataPointTimeJitter.length) {
+      text = dataPointTimeJitter[index]; // Use the timestamp at the corresponding index
+    }
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      child: Text(text, style: style),
+    );
+  }
+
+  Widget leftTitleWidgetsJitter(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 12,
+      color: Colors.white,
+    );
+
+     if (value >= 0 && value <= maxJitter) {
+      return Text('${value.toInt()}ms', style: style, textAlign: TextAlign.left);
+    } else {
+      return Container();
+    }
+  }
+
+  LineChartData jitterChart() {
+    double maxX = dataPointsJitter.isNotEmpty ? dataPointsJitter.last.x : 0;
+    double minX = maxX - (limitCount - 1).toDouble();
+
+    return LineChartData(
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: true,
+        horizontalInterval: maxJitter/10, // Adjust based on expected latency range
+        verticalInterval: 1,
+        getDrawingHorizontalLine: (value) {
+          return const FlLine(
+            color: Colors.lightBlue,
+            strokeWidth: 1,
+          );
+        },
+        getDrawingVerticalLine: (value) {
+          return const FlLine(
+            color: Colors.lightBlue,
+            strokeWidth: 1,
+          );
+        },
+      ),
+      titlesData: FlTitlesData(
+        show: true,
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+            interval: 1,
+            getTitlesWidget: bottomTitleWidgetsJitter,
+          ),
+        ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: maxJitter/5, // Adjust based on expected latency range
+            getTitlesWidget: leftTitleWidgetsJitter,
+            reservedSize: 42,
+          ),
+        ),
+      ),
+      borderData: FlBorderData(
+        show: true,
+        border: Border.all(color: const Color(0xff37434d)),
+      ),
+      minX: minX,
+      maxX: maxX,
+      minY: 0,
+      maxY: maxJitter,
+      lineBarsData: [
+        LineChartBarData(
+          show: dataPointsJitter.isNotEmpty,
+          spots: dataPointsJitter,
+          isCurved: true,
+          gradient: LinearGradient(
+            colors: gradientColors,
+          ),
+          barWidth: 4,
+          isStrokeCapRound: true,
+          dotData: const FlDotData(
+            show: false,
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: gradientColors
+                  .map((color) => color.withOpacity(0.3))
+                  .toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  //-----------------------------------------------------------------------------Average Latency----------------------------------------------------------------------------
+
+  Widget bottomTitleWidgetsAvgLatency(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+      color: Colors.white,
+    );
+
+    int index = value.toInt();
+    String text = '';
+    if (index >= 0 && index < dataPointTimeLatency.length) {
+      text = dataPointTimeLatency[index]; // Use the timestamp at the corresponding index
+    }
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      child: Text(text, style: style),
+    );
+  }
+
+  Widget leftTitleWidgetsAvgLatency(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 12,
+      color: Colors.white,
+    );
+
+     if (value >= 0 && value <= maxAvgLatency) {
+      return Text('${value.toInt()}ms', style: style, textAlign: TextAlign.left);
+    } else {
+      return Container();
+    }
+  }
+
+  LineChartData avgLatencyChart() {
+    double maxX = dataPointsAvgLatency.isNotEmpty ? dataPointsAvgLatency.last.x : 0;
+    double minX = maxX - (limitCount - 1).toDouble();
+    // double maxY = dataPointsLatency.isNotEmpty
+    //     ? dataPointsLatency.map((e) => e.y).reduce((a, b) => a > b ? a : b)
+    //     : 100; // Adjust based on expected maximum latency
+
+    return LineChartData(
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: true,
+        horizontalInterval: maxAvgLatency/10, // Adjust based on expected latency range
+        verticalInterval: 1,
+        getDrawingHorizontalLine: (value) {
+          return const FlLine(
+            color: Colors.lightBlue,
+            strokeWidth: 1,
+          );
+        },
+        getDrawingVerticalLine: (value) {
+          return const FlLine(
+            color: Colors.lightBlue,
+            strokeWidth: 1,
+          );
+        },
+      ),
+      titlesData: FlTitlesData(
+        show: true,
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+            interval: 1,
+            getTitlesWidget: bottomTitleWidgetsAvgLatency,
+          ),
+        ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: maxAvgLatency/5, // Adjust based on expected latency range
+            getTitlesWidget: leftTitleWidgetsAvgLatency,
+            reservedSize: 42,
+          ),
+        ),
+      ),
+      borderData: FlBorderData(
+        show: true,
+        border: Border.all(color: const Color(0xff37434d)),
+      ),
+      minX: minX,
+      maxX: maxX,
+      minY: 0,
+      maxY: maxAvgLatency,
+      lineBarsData: [
+        LineChartBarData(
+          show: dataPointsAvgLatency.isNotEmpty,
+          spots: dataPointsAvgLatency,
+          isCurved: true,
+          gradient: LinearGradient(
+            colors: gradientColors,
+          ),
+          barWidth: 4,
+          isStrokeCapRound: true,
+          dotData: const FlDotData(
+            show: false,
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: gradientColors
+                  .map((color) => color.withOpacity(0.3))
+                  .toList(),
             ),
           ),
         ),
