@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
+import 'package:pingroute/bottom_data.dart';
+import 'package:pingroute/graph.dart';
 import 'navbar.dart';
 import 'middle_data.dart';
 import 'network.dart';
@@ -117,28 +119,33 @@ class _MainAppState extends State<MainApp> {
   List<Map<String, dynamic>>? tracerouteResult;
   bool isLoading = false;
   bool isRunning = false;
+  bool dataCollected = false;
   List<Map<String, dynamic>> ipStats = [];
   List<Map<String, dynamic>> deepStats = [];
   String currentTime = getCurrentTime();
   int totalPackets = 0;
   int packetsLimit = 25;
+  int packetSent = 0;
   
   Future<void> _performTraceroute() async {
     if (isIP(ip)||isURL(ip)) {
       setRunning(true);
       setLoading();
+      packetSent=0;
+      dataCollected = false;
       ipStats = [];
       deepStats = [];
       final result = await runHeavyTaskIWithIsolate(ip);
       // Parse the result
       List<Map<String, dynamic>> parsedList = parseArrayOfStrings(result);
       for(int x =0; x<parsedList.length;x++){
-        ipStats.add({'hop':parsedList[x]['hop'],'ip':parsedList[x]['ip'] ,'max':parsedList[x]['ping'],'min':parsedList[x]['ping'],'last':parsedList[x]['ping'],'avg':parsedList[x]['ping'],'pl':0});
+        ipStats.add({'hop':parsedList[x]['hop'],'ip':parsedList[x]['ip'],'name':parsedList[x]['name'] ,'max':parsedList[x]['ping'],'min':parsedList[x]['ping'],'last':parsedList[x]['ping'],'avg':parsedList[x]['ping'],'pl':0,'receivedPackets':parsedList[x]['ping']==-1 ? 0 : 1,'sentPackets':1});
         deepStats.add({'hop':parsedList[x]['hop'],'avg':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}],'pl':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':0}],'jitter':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':1}],'pings':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}]});
         totalPackets = 1;
       }
       setState(() {
         tracerouteResult = parsedList;
+        dataCollected = true;
       });
       setLoading();
     }
@@ -168,60 +175,63 @@ class _MainAppState extends State<MainApp> {
 
      List<int> tempPings = await Future.wait(pingFutures);
      //update values
-     for(int y = 0; y < tempPings.length; y++){
-       if(totalPackets < packetsLimit) totalPackets+=1;
-       deepStats[y]['pings'].add({'time':time,'value':tempPings[y]});
-        
-       // Update max and min values
-       if (tempPings[y] > ipStats[y]['max'] && tempPings[y] != -1) {
-         ipStats[y]['max'] = tempPings[y];
-       }
-       if (tempPings[y] < ipStats[y]['min'] && tempPings[y] != -1) {
-         ipStats[y]['min'] = tempPings[y];
-       }
-
-       ipStats[y]['last'] = tempPings[y];
-       //packet loss calculation and update
-      int validPacketloss = 0;
-
-      // Count the number of lost packets
-      deepStats[y]['pings'].forEach((each) {
-        if (each['value'] == -1) {
-          validPacketloss++;
+     if(deepStats.isNotEmpty)
+      {for(int y = 0; y < tempPings.length; y++){
+        packetSent++;
+        ipStats[y]['sentPackets'] = ipStats[y]['sentPackets']+1;
+        if(totalPackets < packetsLimit) totalPackets+=1;
+        deepStats[y]['pings'].add({'time':time,'value':tempPings[y]});
+          if(tempPings[y]!=-1) ipStats[y]['receivedPackets'] = ipStats[y]['receivedPackets']+1;
+        // Update max and min values
+        if (tempPings[y] > ipStats[y]['max'] && tempPings[y] != -1) {
+          ipStats[y]['max'] = tempPings[y];
         }
-      });
+        if (tempPings[y] < ipStats[y]['min'] && tempPings[y] != -1) {
+          ipStats[y]['min'] = tempPings[y];
+        }
 
-      // Calculate packet loss percentage
-      int calculatedPL = (validPacketloss * 100 / totalPackets).round();
+        ipStats[y]['last'] = tempPings[y];
+        //packet loss calculation and update
+        int validPacketloss = 0;
 
-      // Update deepStats and ipStats
-      deepStats[y]['pl'].add({'time': time, 'value': calculatedPL <= 100 ? calculatedPL : 100});
-      ipStats[y]['pl'] = calculatedPL <= 100 ? calculatedPL : 100;
-         // Calculate average excluding -1 values
-       num totalAVG = 0;
-        int count = 0;
-       deepStats[y]['pings'].forEach((each) {
-         if (each['value'] != -1) {
-           totalAVG += each['value'];
-           count++;
-         }
-       });
-      double jitter = calculateCumulativeJitter(deepStats, 2);
-      deepStats[y]['jitter'].add({'time':time,'value':jitter});
+        // Count the number of lost packets
+        deepStats[y]['pings'].forEach((each) {
+          if (each['value'] == -1) {
+            validPacketloss++;
+          }
+        });
+
+        // Calculate packet loss percentage
+        int calculatedPL = (validPacketloss * 100 / totalPackets).round();
+
+        // Update deepStats and ipStats
+        deepStats[y]['pl'].add({'time': time, 'value': calculatedPL <= 100 ? calculatedPL : 100});
+        ipStats[y]['pl'] = calculatedPL <= 100 ? calculatedPL : 100;
+          // Calculate average excluding -1 values
+        num totalAVG = 0;
+          int count = 0;
+        deepStats[y]['pings'].forEach((each) {
+          if (each['value'] != -1) {
+            totalAVG += each['value'];
+            count++;
+          }
+        });
+        double jitter = calculateCumulativeJitter(deepStats, 2);
+        deepStats[y]['jitter'].add({'time':time,'value':jitter});
 
 
-       num avgPing = count > 0 ? (totalAVG / count).round() : 0;
-       deepStats[y]['avg'].add({'time': time, 'value': avgPing});
+        num avgPing = count > 0 ? (totalAVG / count).round() : 0;
+        deepStats[y]['avg'].add({'time': time, 'value': avgPing});
 
-       setState(() {
-         ipStats[y]['avg'] = avgPing;
-       });
+        setState(() {
+          ipStats[y]['avg'] = avgPing;
+        });
 
-       if(deepStats[y]['pl'].length > 25) deepStats[y]['pl'].removeAt(0);
-       if(deepStats[y]['jitter'].length > 25) deepStats[y]['jitter'].removeAt(0);
-       if(deepStats[y]['pings'].length > 25) deepStats[y]['pings'].removeAt(0);
-       if(deepStats[y]['avg'].length > 25) deepStats[y]['avg'].removeAt(0);
-     }
+        if(deepStats[y]['pl'].length > 25) deepStats[y]['pl'].removeAt(0);
+        if(deepStats[y]['jitter'].length > 25) deepStats[y]['jitter'].removeAt(0);
+        if(deepStats[y]['pings'].length > 25) deepStats[y]['pings'].removeAt(0);
+        if(deepStats[y]['avg'].length > 25) deepStats[y]['avg'].removeAt(0);
+      }}
      await Future.delayed(Duration(milliseconds: interval));
    }
  }
@@ -263,10 +273,28 @@ class _MainAppState extends State<MainApp> {
     }
     return Scaffold(
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Navbar(setText: setText,execTraceroute:execTraceroute,isRunning: isRunning,),
-          SizedBox(height: MediaQuery.of(context).size.height*0.02,),
-          LeftData(data: tracerouteResult,isLoading: isLoading,IPStats:ipStats,deepStats:deepStats,interval:graphInterval,isRunning:isRunning),
+          SizedBox(
+            child: Column(
+              children: [
+                Navbar(setText: setText,execTraceroute:execTraceroute,isRunning: isRunning,),
+                SizedBox(height: MediaQuery.of(context).size.height*0.01,),
+                LeftData(data: tracerouteResult,isLoading: isLoading,IPStats:ipStats,deepStats:deepStats,interval:graphInterval,isRunning:isRunning),
+              ],
+            )
+          ),
+          Container(
+            clipBehavior: Clip.hardEdge,
+            height: MediaQuery.of(context).size.height*0.38,
+            width: MediaQuery.of(context).size.width*0.9,
+            decoration:const BoxDecoration(
+              borderRadius: BorderRadius.only(topLeft:Radius.circular(20),topRight:Radius.circular(20)),
+              color: Color(0xff45474B)
+            ),
+            child: BottomData(IPStats: ipStats, deepStats: deepStats, interval: interval, isRunning: isRunning, totalPackets:packetSent,isLoading:isLoading,graphInterval:graphInterval,dataCollected:dataCollected),
+          )
+          
         ],
       ),
     );

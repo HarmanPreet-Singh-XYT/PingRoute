@@ -20,8 +20,8 @@ class _GraphState extends State<Graph> {
     Colors.blue,
   ];
 
-  double maxLatency = 0;
-  double maxAvgLatency = 0;
+  double maxLatency = 5;
+  double maxAvgLatency = 5;
   double maxJitter = 5;
 
   bool showAvg = false;

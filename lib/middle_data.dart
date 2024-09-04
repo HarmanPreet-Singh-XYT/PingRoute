@@ -24,20 +24,20 @@ class _LeftDataState extends State<LeftData> {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        constraints: BoxConstraints(minWidth: 1200),
+        constraints: const BoxConstraints(minWidth: 1200),
         width: MediaQuery.of(context).size.width*0.9,
         height: MediaQuery.of(context).size.height*0.50,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              constraints: BoxConstraints(minWidth: 655),
+              constraints: const BoxConstraints(minWidth: 655),
               clipBehavior: Clip.hardEdge,
               width: MediaQuery.of(context).size.width*0.49,
               height: MediaQuery.of(context).size.height*0.50,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(width: 2,color:const Color(0xff379777)),
+                border: Border.all(width: 2,color:Colors.blue),
                 color:const Color(0xff45474B)
               ),
               child: Column(
@@ -47,12 +47,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4, // Adjust the flex value to achieve your desired width
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -68,12 +68,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 10,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 100),
+                          constraints: const BoxConstraints(minWidth: 100),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -89,12 +89,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 12,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 100),
+                          constraints: const BoxConstraints(minWidth: 100),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -110,12 +110,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -131,12 +131,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -152,12 +152,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -173,12 +173,12 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Color(0xff379777), width:2),
-                              bottom: BorderSide(color: Color(0xff379777), width:2),
+                              right: BorderSide(color: Colors.blue, width:2),
+                              bottom: BorderSide(color: Colors.blue, width:2),
                             ),
                           ),
                           child:const Align(
@@ -194,10 +194,10 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(
                         flex: 4,
                         child: Container(
-                          constraints: BoxConstraints(minWidth: 55),
+                          constraints: const BoxConstraints(minWidth: 55),
                           height: 40,
                           decoration: const BoxDecoration(
-                            border: Border(bottom: BorderSide(color: Color(0xff379777), width:2)),
+                            border: Border(bottom: BorderSide(color: Colors.blue, width:2)),
                           ),
                           child:const Align(
                             alignment: Alignment.center,
@@ -231,12 +231,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4, // Adjust the flex value to achieve your desired width
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -252,12 +252,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 10,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 100),
+                                  constraints: const BoxConstraints(minWidth: 100),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -273,12 +273,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 12,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 100),
+                                  constraints: const BoxConstraints(minWidth: 100),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -294,12 +294,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -315,12 +315,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -336,12 +336,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -357,12 +357,12 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
                                     border: Border(
-                                      right: BorderSide(color: Color(0xff379777), width: 1),
-                                      bottom: BorderSide(color: Color(0xff379777), width: 1),
+                                      right: BorderSide(color: Colors.blue, width: 1),
+                                      bottom: BorderSide(color: Colors.blue, width: 1),
                                     ),
                                   ),
                                   child: Align(
@@ -378,10 +378,10 @@ class _LeftDataState extends State<LeftData> {
                               Flexible(
                                 flex: 4,
                                 child: Container(
-                                  constraints: BoxConstraints(minWidth: 55),
+                                  constraints: const BoxConstraints(minWidth: 55),
                                   height: 40,
                                   decoration: const BoxDecoration(
-                                    border: Border(bottom: BorderSide(color: Color(0xff379777), width: 1)),
+                                    border: Border(bottom: BorderSide(color: Colors.blue, width: 1)),
                                   ),
                                   child: Align(
                                     alignment: Alignment.center,
@@ -420,7 +420,17 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('alt'), child:Text('Average Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='alt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='alt' ? 16 : 14)))),
                     ],
                   ),
-                  if(widget.deepStats.isNotEmpty) Graph(data:widget.deepStats.last,dataType:dataType,interval: widget.interval,isRunning:widget.isRunning),
+                  if(widget.deepStats.isNotEmpty) Graph(data:widget.deepStats.last,dataType:dataType,interval: widget.interval,isRunning:widget.isRunning) else widget.isLoading ? Column(
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height*0.20,),
+                      Center(child: CircularProgressIndicator(color: Colors.white,)),
+                    ],
+                  ) : Column(
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height*0.20,),
+                      Center(child: Text('No data available',style: TextStyle(color: Colors.white, fontSize: 20,fontWeight: FontWeight.bold),)),
+                    ],
+                  ),
                 ],
               ),
             ),
