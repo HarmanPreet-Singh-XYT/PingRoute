@@ -1,6 +1,6 @@
 # PingRoute
 
-![Showcase](/demo_images/3.PNG)
+![Showcase](/demo_images/3.png)
 ![Showcase1](/demo_images/1.PNG)
 ![Showcase2](/demo_images/2.PNG)
 
