@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-class Navbar extends StatefulWidget {
+class Navbar extends StatelessWidget {
   const Navbar({super.key,required this.setText,required this.execTraceroute,required this.isRunning,required this.showSettings});
   final Function(String text,String type) setText;
   final Function() execTraceroute;
   final bool isRunning;
   final Function() showSettings;
-  @override
-  State<Navbar> createState() => _NavbarState();
-}
-
-class _NavbarState extends State<Navbar> {
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -45,8 +40,8 @@ class _NavbarState extends State<Navbar> {
                           //   // ),
                           // ),
                           IconButton(
-                            onPressed: ()=>widget.execTraceroute(),
-                             icon:Icon(widget.isRunning ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,color:widget.isRunning ? const Color(0xffF4CE14) : const Color(0xff379777),size: 50,)),
+                            onPressed: ()=>execTraceroute(),
+                             icon:Icon(isRunning ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,color:isRunning ? const Color(0xffF4CE14) : const Color(0xff379777),size: 50,)),
                           const SizedBox(width: 20,),
                           Row(
                             children: [
@@ -62,7 +57,7 @@ class _NavbarState extends State<Navbar> {
                                 padding:const EdgeInsets.symmetric(horizontal: 20),
                                 child:TextFormField(
                                   onChanged:(text) {
-                                    widget.setText(text,'ip');
+                                    setText(text,'ip');
                                   },
                                   style:const TextStyle(fontSize: 18),
                                   textAlign: TextAlign.center,
@@ -87,7 +82,7 @@ class _NavbarState extends State<Navbar> {
                                 padding:const EdgeInsets.symmetric(horizontal: 20),
                                 child:TextFormField(
                                   onChanged:(text) {
-                                    widget.setText(text,'interval');
+                                    setText(text,'interval');
                                   },
                                   style:const TextStyle(fontSize: 18),
                                   initialValue: '1000',
@@ -147,7 +142,7 @@ class _NavbarState extends State<Navbar> {
                           ),
                         ),
                         const SizedBox(width: 20,),
-                        IconButton(onPressed: ()=>{widget.showSettings()}, icon: Icon(Icons.settings, color: Colors.white,size: 40,)),
+                        IconButton(onPressed: ()=>{showSettings()}, icon: Icon(Icons.settings, color: Colors.white,size: 40,)),
                         const SizedBox(width: 10,)
                       ],
                     )

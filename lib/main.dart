@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
-import 'package:pingroute/bottom_data.dart';
+import 'package:PingRoute/bottom_data.dart';
 import 'navbar.dart';
 import 'middle_data.dart';
 import 'network.dart';
@@ -11,11 +11,13 @@ import 'package:dart_ping/dart_ping.dart';
 import 'package:intl/intl.dart';
 import 'settings.dart';
 import 'error.dart';
+
 void main(){
   runApp(
     const MaterialApp(
       home:MainApp(),
       color:Color(0xffF5F7F8),
+      debugShowCheckedModeBanner: false,
     )
   );
 }
@@ -142,7 +144,6 @@ class _MainAppState extends State<MainApp> {
       if(result.isNotEmpty) success = true;
       // Parse the result
       List<Map<String, dynamic>> parsedList = parseArrayOfStrings(result);
-      print(parsedList.length);
       for(int x =0; x<parsedList.length;x++){
         ipStats.add({'hop':parsedList[x]['hop'],'ip':parsedList[x]['ip'],'name':parsedList[x]['name'] ,'max':parsedList[x]['ping'],'min':parsedList[x]['ping'],'last':parsedList[x]['ping'],'avg':parsedList[x]['ping'],'pl':0,'receivedPackets':parsedList[x]['ping']==-1 ? 0 : 1,'sentPackets':1});
         deepStats.add({'hop':parsedList[x]['hop'],'avg':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}],'pl':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':0}],'jitter':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':1}],'pings':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}]});
@@ -182,7 +183,6 @@ class _MainAppState extends State<MainApp> {
          })
        );
      }
-
      List<int> tempPings = await Future.wait(pingFutures);
      //update values
      if(deepStats.isNotEmpty)

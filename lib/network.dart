@@ -28,8 +28,7 @@ class NetworkLib {
       }
 
       if (Platform.isWindows) {
-        libraryPath = path.join(
-            Directory.current.path, 'network_library', 'Debug', 'network.dll');
+        libraryPath = 'network.dll';
       }
     _lib = Platform.isWindows
         ? DynamicLibrary.open(libraryPath)

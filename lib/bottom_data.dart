@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pingroute/graph.dart';
+import 'package:PingRoute/graph.dart';
 
 class BottomData extends StatefulWidget {
   const BottomData({
@@ -80,7 +80,7 @@ class _BottomDataState extends State<BottomData> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text('${item['hop']}',style:const TextStyle(fontWeight:FontWeight.bold),),
+                            child: Text('${item['hop']}',style:TextStyle(fontWeight:item['hop']==selectedHop ? FontWeight.bold : FontWeight.normal),),
                           ),
                         ),
                       ],
@@ -165,7 +165,7 @@ class _BottomDataState extends State<BottomData> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text('Jitter',style:const TextStyle(fontWeight:FontWeight.bold)),
+                            child: Text('Jitter',style:TextStyle(fontWeight:dataType == 'jt' ? FontWeight.bold : FontWeight.normal)),
                           ),
                         ),
                       ],
@@ -186,7 +186,7 @@ class _BottomDataState extends State<BottomData> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text('Latency',style:const TextStyle(fontWeight:FontWeight.bold)),
+                            child: Text('Latency',style:TextStyle(fontWeight:dataType == 'lt' ? FontWeight.bold : FontWeight.normal)),
                           ),
                         ),
                       ],
@@ -207,7 +207,7 @@ class _BottomDataState extends State<BottomData> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text('Packet Loss',style:const TextStyle(fontWeight:FontWeight.bold)),
+                            child: Text('Packet Loss',style:TextStyle(fontWeight:dataType == 'pl' ? FontWeight.bold : FontWeight.normal)),
                           ),
                         ),
                       ],
@@ -228,7 +228,7 @@ class _BottomDataState extends State<BottomData> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text('Average Latency',style:const TextStyle(fontWeight:FontWeight.bold),textAlign: TextAlign.center,),
+                            child: Text('Average Latency',style:TextStyle(fontWeight:dataType == 'alt' ? FontWeight.bold : FontWeight.normal),textAlign: TextAlign.center,),
                           ),
                         ),
                       ],

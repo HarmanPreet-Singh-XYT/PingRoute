@@ -1,4 +1,4 @@
-name: pingroute
+name: PingRoute
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -51,6 +51,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+  msix: ^3.16.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -93,3 +94,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+msix_config:
+  display_name: PingRoute
+  publisher_display_name: Harmanita
+  identity_name: Harmanita.PingRoute
+  msix_version: 1.0.0.0
+  logo_path: C:\Projects\pingroute\logo.png
+  capabilities: internetClient
+  publisher: CN=5EB16640-AA72-4826-B8B0-95B5C4F31CF0
+  store: true

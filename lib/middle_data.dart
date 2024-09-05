@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pingroute/graph.dart';
+import 'package:PingRoute/graph.dart';
 
 class LeftData extends StatefulWidget {
   const LeftData({super.key,required this.data,required this.isLoading, required this.IPStats, required this.deepStats, required this.interval,required this.isRunning,required this.isSuccess});
@@ -418,18 +418,18 @@ class _LeftDataState extends State<LeftData> {
                       Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('pl'), child:Text('Packet Loss',style: TextStyle(color: Colors.white,fontWeight:dataType=='pl' ? FontWeight.bold : FontWeight.normal,fontSize:dataType=='pl' ? 16 : 14),))),
                       Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('lt'), child:Text('Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='lt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='lt' ? 16 : 14)))),
                       Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('jt'), child:Text('Jitter',style: TextStyle(color: Colors.white,fontWeight: dataType=='jt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='jt' ? 16 : 14)))),
-                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('alt'), child:Text('Average Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='alt' ? FontWeight.bold : FontWeight.normal,fontSize: dataType=='alt' ? 16 : 14)))),
+                      Flexible(flex: 1,child: TextButton(onPressed: ()=>setGraphType('alt'), child:Text('Average Latency',style: TextStyle(color: Colors.white,fontWeight: dataType=='alt' ? FontWeight.bold : FontWeight.normal,fontSize: 14)))),
                     ],
                   ),
                   if(widget.deepStats.isNotEmpty) Graph(data:widget.deepStats.last,dataType:dataType,interval: widget.interval,isRunning:widget.isRunning) else widget.isLoading ? Column(
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height*0.20,),
-                      Center(child: CircularProgressIndicator(color: Colors.white,)),
+                      const Center(child: CircularProgressIndicator(color: Colors.white,)),
                     ],
                   ) : Column(
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height*0.20,),
-                      Center(child: Text('No data available',style: TextStyle(color: Colors.white, fontSize: 20,fontWeight: FontWeight.bold),)),
+                      const Center(child: Text('No data available',style: TextStyle(color: Colors.white, fontSize: 20,fontWeight: FontWeight.bold),)),
                     ],
                   ),
                 ],
