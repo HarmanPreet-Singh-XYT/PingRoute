@@ -12,6 +12,7 @@ class BottomData extends StatefulWidget {
     required this.isLoading,
     required this.totalPackets,
     required this.dataCollected,
+    required this.success
   });
 
   final List<Map<String, dynamic>> IPStats;
@@ -22,6 +23,7 @@ class BottomData extends StatefulWidget {
   final int interval;
   final bool isRunning;
   final bool dataCollected;
+  final bool success;
 
   @override
   State<BottomData> createState() => _BottomDataState();
@@ -46,7 +48,7 @@ class _BottomDataState extends State<BottomData> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.dataCollected ? Row(
+    return (widget.dataCollected && widget.success) ? Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Scrollable list of buttons

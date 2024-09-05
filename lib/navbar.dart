@@ -78,6 +78,7 @@ class _NavbarState extends State<Navbar> {
                               const SizedBox(width: 20,),
                               Container(
                                 height: 40,
+                                margin:const EdgeInsets.only(right: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(15)
@@ -97,6 +98,15 @@ class _NavbarState extends State<Navbar> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(
+                                height: 40,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Text('ms',style: TextStyle(fontSize: 16,color: Colors.white,fontWeight: FontWeight.bold),),
+                                  ],
+                                ),
+                              )
                             ],
                           ),
                         ],
@@ -133,7 +143,7 @@ class _NavbarState extends State<Navbar> {
                           width: 100,
                           height: 40,
                           child:const Center(
-                            child: Text('200-300',style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: Colors.white),),
+                            child: Text('200+',style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: Colors.white),),
                           ),
                         ),
                         const SizedBox(width: 20,),

@@ -10,7 +10,7 @@ import 'package:validators/validators.dart';
 import 'package:dart_ping/dart_ping.dart';
 import 'package:intl/intl.dart';
 import 'settings.dart';
-
+import 'error.dart';
 void main(){
   runApp(
     const MaterialApp(
@@ -119,6 +119,7 @@ class _MainAppState extends State<MainApp> {
   int graphInterval = 1000;
   List<Map<String, dynamic>>? tracerouteResult;
   bool isLoading = false;
+  bool success = false;
   bool isRunning = false;
   bool dataCollected = false;
   List<Map<String, dynamic>> ipStats = [];
@@ -132,21 +133,29 @@ class _MainAppState extends State<MainApp> {
     if (isIP(ip)||isURL(ip)) {
       setRunning(true);
       setLoading();
+      success = false;
       packetSent=0;
       dataCollected = false;
       ipStats = [];
       deepStats = [];
       final result = await runHeavyTaskIWithIsolate(ip);
+      if(result.isNotEmpty) success = true;
       // Parse the result
       List<Map<String, dynamic>> parsedList = parseArrayOfStrings(result);
+      print(parsedList.length);
       for(int x =0; x<parsedList.length;x++){
         ipStats.add({'hop':parsedList[x]['hop'],'ip':parsedList[x]['ip'],'name':parsedList[x]['name'] ,'max':parsedList[x]['ping'],'min':parsedList[x]['ping'],'last':parsedList[x]['ping'],'avg':parsedList[x]['ping'],'pl':0,'receivedPackets':parsedList[x]['ping']==-1 ? 0 : 1,'sentPackets':1});
         deepStats.add({'hop':parsedList[x]['hop'],'avg':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}],'pl':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':0}],'jitter':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':1}],'pings':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}]});
         totalPackets = 1;
       }
       setState(() {
-        tracerouteResult = parsedList;
-        dataCollected = true;
+        if(success){
+          tracerouteResult = parsedList;
+          dataCollected = true;
+        }else{
+          isRunning = false;
+          showErrorPopup(context);
+        }
       });
       setLoading();
     }
@@ -314,6 +323,7 @@ class _MainAppState extends State<MainApp> {
                   deepStats: deepStats,
                   interval: graphInterval,
                   isRunning: isRunning,
+                  isSuccess:success
                 ),
               ],
             ),
@@ -338,6 +348,7 @@ class _MainAppState extends State<MainApp> {
               isLoading: isLoading,
               graphInterval: graphInterval,
               dataCollected: dataCollected,
+              success:success
             ),
           ),
         ],

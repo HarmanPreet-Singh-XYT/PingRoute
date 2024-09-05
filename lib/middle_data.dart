@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:pingroute/graph.dart';
 
 class LeftData extends StatefulWidget {
-  const LeftData({super.key,required this.data,required this.isLoading, required this.IPStats, required this.deepStats, required this.interval,required this.isRunning});
+  const LeftData({super.key,required this.data,required this.isLoading, required this.IPStats, required this.deepStats, required this.interval,required this.isRunning,required this.isSuccess});
   final List<Map<String,dynamic>>? data;
   final bool isLoading;
   final List<Map<String, dynamic>> IPStats;
   final List<Map<String, dynamic>> deepStats;
   final int interval;
   final bool isRunning;
+  final bool isSuccess;
   @override
   State<LeftData> createState() => _LeftDataState();
 }
@@ -221,7 +222,7 @@ class _LeftDataState extends State<LeftData> {
                       ],
                     ),
                   ))
-                  : Expanded(
+                  : widget.isSuccess ? Expanded(
                     child: ListView.builder(
                         itemCount: widget.data?.length ?? 0,
                         itemBuilder: (context, index) {
@@ -397,7 +398,7 @@ class _LeftDataState extends State<LeftData> {
                           );
                         },
                       ),
-                  ),
+                  ) : Expanded(child: Container(),),
                 ],
               ),
             ),
