@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 class Navbar extends StatefulWidget {
-  const Navbar({super.key,required this.setText,required this.execTraceroute,required this.isRunning});
+  const Navbar({super.key,required this.setText,required this.execTraceroute,required this.isRunning,required this.showSettings});
   final Function(String text,String type) setText;
   final Function() execTraceroute;
   final bool isRunning;
+  final Function() showSettings;
   @override
   State<Navbar> createState() => _NavbarState();
 }
@@ -136,14 +137,7 @@ class _NavbarState extends State<Navbar> {
                           ),
                         ),
                         const SizedBox(width: 20,),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(100),
-                            color: Colors.white
-                          )
-                        ),
+                        IconButton(onPressed: ()=>{widget.showSettings()}, icon: Icon(Icons.settings, color: Colors.white,size: 40,)),
                         const SizedBox(width: 10,)
                       ],
                     )

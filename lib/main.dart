@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:pingroute/bottom_data.dart';
-import 'package:pingroute/graph.dart';
 import 'navbar.dart';
 import 'middle_data.dart';
 import 'network.dart';
@@ -10,6 +9,8 @@ import 'parse_result.dart';
 import 'package:validators/validators.dart';
 import 'package:dart_ping/dart_ping.dart';
 import 'package:intl/intl.dart';
+import 'settings.dart';
+
 void main(){
   runApp(
     const MaterialApp(
@@ -216,7 +217,7 @@ class _MainAppState extends State<MainApp> {
             count++;
           }
         });
-        double jitter = calculateCumulativeJitter(deepStats, 2);
+        double jitter = calculateCumulativeJitter(deepStats, y);
         deepStats[y]['jitter'].add({'time':time,'value':jitter});
 
 
@@ -227,10 +228,10 @@ class _MainAppState extends State<MainApp> {
           ipStats[y]['avg'] = avgPing;
         });
 
-        if(deepStats[y]['pl'].length > 25) deepStats[y]['pl'].removeAt(0);
-        if(deepStats[y]['jitter'].length > 25) deepStats[y]['jitter'].removeAt(0);
-        if(deepStats[y]['pings'].length > 25) deepStats[y]['pings'].removeAt(0);
-        if(deepStats[y]['avg'].length > 25) deepStats[y]['avg'].removeAt(0);
+        if(deepStats[y]['pl'].length > packetsLimit) deepStats[y]['pl'].removeAt(0);
+        if(deepStats[y]['jitter'].length > packetsLimit) deepStats[y]['jitter'].removeAt(0);
+        if(deepStats[y]['pings'].length > packetsLimit) deepStats[y]['pings'].removeAt(0);
+        if(deepStats[y]['avg'].length > packetsLimit) deepStats[y]['avg'].removeAt(0);
       }}
      await Future.delayed(Duration(milliseconds: interval));
    }
@@ -256,9 +257,9 @@ class _MainAppState extends State<MainApp> {
             ip = text;
           break;
         case 'interval':
-          if(isNumeric(text)){
+          if(isNumeric(text) && text!='' && text!='0'){
             int convertedString = int.parse(text);
-            interval = convertedString;
+            if(int.parse(text) > 0) interval = convertedString;
           }
           break;
       }
@@ -271,6 +272,23 @@ class _MainAppState extends State<MainApp> {
         runPingsWithDelay(isRunning,ipStats,interval);
       }
     }
+    void changeSettingParams(String text,String type){
+      switch (type) {
+        case 'graphInterval':
+          if(isNumeric(text) && text!='' && text!='0'){
+            if(int.parse(text) > 0) graphInterval=int.parse(text);
+          }
+          break;
+        case 'packetsLimit':
+          if(isNumeric(text) && text!='' && text!='0'){
+            if(int.parse(text) > 15) packetsLimit=int.parse(text);
+          }
+          break;
+      }
+    }
+    void showSettings(){
+      showSettingsPopup(context,graphInterval,packetsLimit,changeSettingParams);
+    }
     return Scaffold(
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -278,23 +296,50 @@ class _MainAppState extends State<MainApp> {
           SizedBox(
             child: Column(
               children: [
-                Navbar(setText: setText,execTraceroute:execTraceroute,isRunning: isRunning,),
-                SizedBox(height: MediaQuery.of(context).size.height*0.01,),
-                LeftData(data: tracerouteResult,isLoading: isLoading,IPStats:ipStats,deepStats:deepStats,interval:graphInterval,isRunning:isRunning),
+                // Navbar widget, assuming you can modify it to include a settings button or use an external button
+                Navbar(
+                  setText: setText,
+                  execTraceroute: execTraceroute,
+                  isRunning: isRunning,
+                  showSettings:showSettings
+                ),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.01,
+                ),
+
+                LeftData(
+                  data: tracerouteResult,
+                  isLoading: isLoading,
+                  IPStats: ipStats,
+                  deepStats: deepStats,
+                  interval: graphInterval,
+                  isRunning: isRunning,
+                ),
               ],
-            )
+            ),
           ),
           Container(
             clipBehavior: Clip.hardEdge,
-            height: MediaQuery.of(context).size.height*0.38,
-            width: MediaQuery.of(context).size.width*0.9,
-            decoration:const BoxDecoration(
-              borderRadius: BorderRadius.only(topLeft:Radius.circular(20),topRight:Radius.circular(20)),
-              color: Color(0xff45474B)
+            height: MediaQuery.of(context).size.height * 0.38,
+            width: MediaQuery.of(context).size.width * 0.9,
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+              color: Color(0xff45474B),
             ),
-            child: BottomData(IPStats: ipStats, deepStats: deepStats, interval: interval, isRunning: isRunning, totalPackets:packetSent,isLoading:isLoading,graphInterval:graphInterval,dataCollected:dataCollected),
-          )
-          
+            child: BottomData(
+              IPStats: ipStats,
+              deepStats: deepStats,
+              interval: interval,
+              isRunning: isRunning,
+              totalPackets: packetSent,
+              isLoading: isLoading,
+              graphInterval: graphInterval,
+              dataCollected: dataCollected,
+            ),
+          ),
         ],
       ),
     );

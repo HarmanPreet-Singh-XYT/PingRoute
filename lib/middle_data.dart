@@ -213,7 +213,7 @@ class _LeftDataState extends State<LeftData> {
                   ),
                   (widget.isLoading)
                   ? Center(child: SizedBox(
-                    height: MediaQuery.of(context).size.height*0.35,
+                    height: MediaQuery.of(context).size.height*0.4,
                     child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
