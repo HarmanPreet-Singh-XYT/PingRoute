@@ -1,7 +1,6 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
-import 'package:path/path.dart' as path;
 
 typedef GetTracerouteArrayC = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
 typedef GetTracerouteArrayDart = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
@@ -19,12 +18,10 @@ class NetworkLib {
   late PingDart ping;
 
   NetworkLib() {
-    var libraryPath =
-      path.join(Directory.current.path, 'network_library', 'libnetwork.so');
+    var libraryPath = 'libnetwork.so';
 
       if (Platform.isMacOS) {
-        libraryPath =
-            path.join(Directory.current.path, 'network_library', 'libnetwork.dylib');
+        libraryPath = 'libnetwork.dylib';
       }
 
       if (Platform.isWindows) {
