@@ -12,7 +12,8 @@ class BottomData extends StatefulWidget {
     required this.isLoading,
     required this.totalPackets,
     required this.dataCollected,
-    required this.success
+    required this.success,
+    required this.toggleStatistics
   });
 
   final List<Map<String, dynamic>> IPStats;
@@ -24,6 +25,7 @@ class BottomData extends StatefulWidget {
   final bool isRunning;
   final bool dataCollected;
   final bool success;
+  final Function() toggleStatistics;
 
   @override
   State<BottomData> createState() => _BottomDataState();
@@ -44,15 +46,13 @@ class _BottomDataState extends State<BottomData> {
     });
   }
 
-  void viewSummary() {}
-
   @override
   Widget build(BuildContext context) {
     return (widget.dataCollected && widget.success) ? Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Scrollable list of buttons
-        Container(
+        SizedBox(
           width: MediaQuery.of(context).size.width * 0.1,
           height: MediaQuery.of(context).size.height * 0.4,// Set height to allow scrolling
           child: SingleChildScrollView(
@@ -92,7 +92,7 @@ class _BottomDataState extends State<BottomData> {
           ),
         ),
         // Table with statistics
-        Container(
+        SizedBox(
           width: MediaQuery.of(context).size.width * 0.32,
           height: MediaQuery.of(context).size.height * 0.4, // Adjust height to fit content
           child: SingleChildScrollView(
@@ -127,7 +127,7 @@ class _BottomDataState extends State<BottomData> {
         // Graph
         
         if (widget.deepStats.isNotEmpty)
-          Container(
+          SizedBox(
             width: MediaQuery.of(context).size.width * 0.38,
             height: MediaQuery.of(context).size.height * 0.4,
             child: Graph(
@@ -137,17 +137,33 @@ class _BottomDataState extends State<BottomData> {
               isRunning: widget.isRunning,
             ),
           ),
-          Container(
+          SizedBox(
           width: MediaQuery.of(context).size.width * 0.1,
           height: MediaQuery.of(context).size.height * 0.4,// Set height to allow scrolling
           child: SingleChildScrollView(
             child: Column(
               children:[ 
+                const SizedBox(height: 10,),
+                ElevatedButton(
+                  onPressed: () {
+                    // Define your action here
+                    widget.toggleStatistics();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16 ,horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child:const Text('View All Hops',style:TextStyle(fontWeight:FontWeight.bold),textAlign: TextAlign.center,),
+                ),
+                const SizedBox(height: 10,),
                 Table(
                   columnWidths: const {
                     0: FlexColumnWidth(1),
                   },
-                  border: TableBorder.all(color: Colors.blueAccent, width: 1,borderRadius: BorderRadius.only(bottomLeft: Radius.circular(20))),
+                  border: TableBorder.all(color: Colors.blueAccent, width: 1,borderRadius:const BorderRadius.only(bottomLeft: Radius.circular(20),topLeft: Radius.circular(20))),
                   children: [
                     TableRow(
                       children: [
@@ -234,12 +250,13 @@ class _BottomDataState extends State<BottomData> {
                       ],
                     ),
                   ],
-                )],
+                ),
+              ],
             ),
           ),
         ),
       ],
-    ) : widget.isLoading ? Center(child: CircularProgressIndicator(color: Colors.white,)) : Center(child: Text('No data available',style: TextStyle(color: Colors.white, fontSize: 20,fontWeight: FontWeight.bold),));
+    ) : widget.isLoading ? const Center(child: CircularProgressIndicator(color: Colors.white,)) : const Center(child: Text('No data available',style: TextStyle(color: Colors.white, fontSize: 20,fontWeight: FontWeight.bold),));
   }
 
   TableRow _buildTableRow(String label, String value) {

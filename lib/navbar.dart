@@ -142,7 +142,7 @@ class Navbar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 20,),
-                        IconButton(onPressed: ()=>{showSettings()}, icon: Icon(Icons.settings, color: Colors.white,size: 40,)),
+                        IconButton(onPressed: ()=>{showSettings()}, icon:const Icon(Icons.settings, color: Colors.white,size: 40,)),
                         const SizedBox(width: 10,)
                       ],
                     )

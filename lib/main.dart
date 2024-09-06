@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
+import 'package:PingRoute/statistics.dart';
 import 'package:flutter/material.dart';
 import 'package:PingRoute/bottom_data.dart';
 import 'navbar.dart';
@@ -115,7 +116,7 @@ String getCurrentTime() {
 }
 
 
-class _MainAppState extends State<MainApp> {
+class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   String ip = '1.1.1.1';
   int interval = 1000;
   int graphInterval = 1000;
@@ -130,6 +131,12 @@ class _MainAppState extends State<MainApp> {
   int totalPackets = 0;
   int packetsLimit = 25;
   int packetSent = 0;
+  List<Map<String,dynamic>> dataTypes = [];
+  //animation
+  bool _isStatisticsVisible = false;
+  late AnimationController _controller;
+  late Animation<Offset> _offsetAnimation;
+  //animation
   
   Future<void> _performTraceroute() async {
     if (isIP(ip)||isURL(ip)) {
@@ -140,6 +147,7 @@ class _MainAppState extends State<MainApp> {
       dataCollected = false;
       ipStats = [];
       deepStats = [];
+      dataTypes = [];
       final result = await runHeavyTaskIWithIsolate(ip);
       if(result.isNotEmpty) success = true;
       // Parse the result
@@ -147,6 +155,7 @@ class _MainAppState extends State<MainApp> {
       for(int x =0; x<parsedList.length;x++){
         ipStats.add({'hop':parsedList[x]['hop'],'ip':parsedList[x]['ip'],'name':parsedList[x]['name'] ,'max':parsedList[x]['ping'],'min':parsedList[x]['ping'],'last':parsedList[x]['ping'],'avg':parsedList[x]['ping'],'pl':0,'receivedPackets':parsedList[x]['ping']==-1 ? 0 : 1,'sentPackets':1});
         deepStats.add({'hop':parsedList[x]['hop'],'avg':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}],'pl':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':0}],'jitter':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':1}],'pings':<Map<String,dynamic>>[{'time':getCurrentTime(),'value':parsedList[x]['ping']}]});
+        dataTypes.add({'hop':parsedList[x]['hop'],'dataType':'lt'});
         totalPackets = 1;
       }
       setState(() {
@@ -245,7 +254,11 @@ class _MainAppState extends State<MainApp> {
      await Future.delayed(Duration(milliseconds: interval));
    }
  }
-
+  void setDataTypes(int index,String type){
+    setState(() {
+      dataTypes[index]['dataType'] = type;
+    });
+  }
   void setLoading(){
     setState(() {
       isLoading = !isLoading;
@@ -258,6 +271,35 @@ class _MainAppState extends State<MainApp> {
       });
     }
   }
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300), // Duration of the slide animation
+    );
+
+    _offsetAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 1.0), // Start from bottom (off-screen)
+      end: Offset.zero, // Slide to its normal position
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  void _toggleStatisticsVisibility() {
+    setState(() {
+      _isStatisticsVisible = !_isStatisticsVisible;
+      _isStatisticsVisible ? _controller.forward() : _controller.reverse();
+    });
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
     void setText(String text,String type){
@@ -298,57 +340,95 @@ class _MainAppState extends State<MainApp> {
     void showSettings(){
       showSettingsPopup(context,graphInterval,packetsLimit,changeSettingParams);
     }
+    void toggleStatistics(){
+      _toggleStatisticsVisibility();
+    }
     return Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Stack(
         children: [
-          SizedBox(
-            child: Column(
-              children: [
-                // Navbar widget, assuming you can modify it to include a settings button or use an external button
-                Navbar(
-                  setText: setText,
-                  execTraceroute: execTraceroute,
-                  isRunning: isRunning,
-                  showSettings:showSettings
+          // Main content
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              SizedBox(
+                child: Column(
+                  children: [
+                    // Navbar widget
+                    Navbar(
+                      setText: setText,
+                      execTraceroute: execTraceroute,
+                      isRunning: isRunning,
+                      showSettings: showSettings,
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+                    LeftData(
+                      data: tracerouteResult,
+                      isLoading: isLoading,
+                      IPStats: ipStats,
+                      deepStats: deepStats,
+                      interval: graphInterval,
+                      isRunning: isRunning,
+                      isSuccess: success,
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.01,
+              ),
+              Container(
+                clipBehavior: Clip.hardEdge,
+                height: MediaQuery.of(context).size.height * 0.38,
+                width: MediaQuery.of(context).size.width * 0.9,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  color: Color(0xff45474B),
                 ),
-
-                LeftData(
-                  data: tracerouteResult,
-                  isLoading: isLoading,
+                child: BottomData(
                   IPStats: ipStats,
                   deepStats: deepStats,
-                  interval: graphInterval,
+                  interval: interval,
                   isRunning: isRunning,
-                  isSuccess:success
+                  totalPackets: packetSent,
+                  isLoading: isLoading,
+                  graphInterval: graphInterval,
+                  dataCollected: dataCollected,
+                  success: success,
+                  toggleStatistics: toggleStatistics,
                 ),
-              ],
-            ),
-          ),
-          Container(
-            clipBehavior: Clip.hardEdge,
-            height: MediaQuery.of(context).size.height * 0.38,
-            width: MediaQuery.of(context).size.width * 0.9,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
               ),
-              color: Color(0xff45474B),
+            ],
+          ),
+          
+          // Fade-in blackish background when Statistics is open
+          if (_isStatisticsVisible)
+            AnimatedOpacity(
+              opacity: _isStatisticsVisible ? 0.5 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                color: Colors.black,
+              ),
             ),
-            child: BottomData(
-              IPStats: ipStats,
-              deepStats: deepStats,
-              interval: interval,
-              isRunning: isRunning,
-              totalPackets: packetSent,
-              isLoading: isLoading,
-              graphInterval: graphInterval,
-              dataCollected: dataCollected,
-              success:success
+          
+          // Slide-in Statistics widget
+          Center(
+            child: SlideTransition(
+              
+              position: _offsetAnimation,
+              child: Statistics(
+                IPStats: ipStats,
+                deepStats: deepStats,
+                interval: interval,
+                isRunning: isRunning,
+                graphInterval: graphInterval,
+                isLoading: isLoading,
+                totalPackets: packetSent,
+                dataCollected: dataCollected,
+                success: success,
+                toggleStatistics: toggleStatistics,
+                dataTypes: dataTypes,
+                setDataType: setDataTypes,
+              ),
             ),
           ),
         ],
