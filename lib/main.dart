@@ -48,30 +48,6 @@ void useIsolate(List<dynamic> args) async {
   final value = networkLib.performTraceroute(args[1]);
   resultPort.send(value);
 }
-// Future<List<int>> runPings(List<Map<String, dynamic>> ipStats) async {
-//   final ReceivePort receivePort = ReceivePort();
-//   List<int> result = [];
-//   try {
-//     await Isolate.spawn(useIsolatePing, [receivePort.sendPort,ipStats]);
-//     result = await receivePort.first;
-//   } on Object catch (e, stackTrace) {
-//     debugPrint('Isolate Failed: $e');
-//     debugPrint('Stack Trace: $stackTrace');
-//     receivePort.close();
-//   }
-//   return result;
-// }
-
-// void useIsolatePing(List<dynamic> args) async {
-//   SendPort resultPort = args[0];
-//   List<int> results = [];
-//   for (int x = 0; x < args[1].length; x++) {
-//     final ping = networkLib.performPing(args[1][x]['ip']);
-//     // Process the ping result if needed
-//     results.add(ping);
-//   }
-//   resultPort.send(results);
-// }
 
 
 double calculateCumulativeJitter(List<Map<String, dynamic>> hops, int targetIndex) {

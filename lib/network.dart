@@ -1,24 +1,19 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
-
 typedef GetTracerouteArrayC = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
 typedef GetTracerouteArrayDart = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
 
 typedef FreeTracerouteArrayC = Void Function(Pointer<Pointer<Utf8>>, Int32);
 typedef FreeTracerouteArrayDart = void Function(Pointer<Pointer<Utf8>>, int);
 
-typedef PingC = Int32 Function(Pointer<Utf8>);
-typedef PingDart = int Function(Pointer<Utf8>);
-
 class NetworkLib {
   late DynamicLibrary _lib;
   late GetTracerouteArrayDart getTracerouteArray;
   late FreeTracerouteArrayDart freeTracerouteArray;
-  late PingDart ping;
 
   NetworkLib() {
-    var libraryPath = 'libnetwork.so';
+    var libraryPath = 'lib/libnetwork.so';
 
       if (Platform.isMacOS) {
         libraryPath = 'libnetwork.dylib';
@@ -27,7 +22,7 @@ class NetworkLib {
       if (Platform.isWindows) {
         libraryPath = 'network.dll';
       }
-    _lib = Platform.isWindows
+    _lib = (Platform.isWindows || Platform.isLinux)
         ? DynamicLibrary.open(libraryPath)
         : throw UnsupportedError('Unsupported platform');
 
@@ -35,7 +30,6 @@ class NetworkLib {
         .lookupFunction<GetTracerouteArrayC, GetTracerouteArrayDart>('get_traceroute_array');
     freeTracerouteArray = _lib
         .lookupFunction<FreeTracerouteArrayC, FreeTracerouteArrayDart>('free_traceroute_array');
-    ping = _lib.lookupFunction<PingC, PingDart>('ping');
   }
 
   List<String> performTraceroute(String destination) {
@@ -56,14 +50,5 @@ class NetworkLib {
     calloc.free(destPtr);
 
     return results;
-  }
-
-  int performPing(String target) {
-    final targetPtr = target.toNativeUtf8();
-    final pingResult = ping(targetPtr);
-
-    calloc.free(targetPtr); // Free the native memory
-
-    return pingResult; // Return the ping result
   }
 }

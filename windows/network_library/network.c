@@ -197,7 +197,7 @@ void free_traceroute_array(char** array, int hop_count) {
     }
     free(array);
 }
-
+//not usable , was created to ping but then preferred to use a package which had cross platform support for ping and also it consumes alot of memory and delays response.
 long ping(const char *target) {
     #define ICMP_ECHO 8
     #define ICMP_ECHO_REPLY 0
