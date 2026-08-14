@@ -1,157 +1,559 @@
-import 'package:flutter/material.dart';
+import 'package:fluent_ui/fluent_ui.dart';
+import 'theme.dart';
+import 'breakpoints.dart';
+import 'target_directory.dart';
+import 'target_dialog.dart';
+import 'network_info_dialog.dart';
+
 class Navbar extends StatelessWidget {
-  const Navbar({super.key,required this.setText,required this.execTraceroute,required this.isRunning,required this.showSettings});
-  final Function(String text,String type) setText;
-  final Function() execTraceroute;
+  const Navbar({
+    super.key,
+    required this.ipController,
+    required this.intervalController,
+    required this.execTraceroute,
+    required this.isRunning,
+    required this.showSettings,
+    this.setText,
+    this.onExport,
+    this.onReset,
+    this.hasData = false,
+  });
+
+  final TextEditingController ipController;
+  final TextEditingController intervalController;
+  final Function(String text, String type)? setText;
+  final VoidCallback execTraceroute;
   final bool isRunning;
-  final Function() showSettings;
+  final VoidCallback showSettings;
+  final VoidCallback? onExport;
+  final VoidCallback? onReset;
+  final bool hasData;
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-        child: Container(
-          constraints:const BoxConstraints(minWidth: 1100,minHeight: 60),
-          width: MediaQuery.of(context).size.width*0.99,
-          
-          child: Container(
-            height: MediaQuery.of(context).size.height*0.08,
-            decoration:const BoxDecoration(
-              color: Color(0xff45474B),
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(20),bottomRight: Radius.circular(20))
-            ),
-            child:Center(
-              child: SizedBox(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    SizedBox(
-                      child: Row(
-                        children: [
-                          // ElevatedButton(
-                          //   onPressed: ()=>widget.execTraceroute(),
-                          //   child: Text('Execute'),
-                          //   // child: Container(
-                          //   //   margin:const EdgeInsets.symmetric(horizontal: 10),
-                          //   //   decoration:BoxDecoration(
-                          //   //     borderRadius: BorderRadius.circular(100),
-                          //   //     color:const Color(0xffF5F7F8)
-                          //   //   ),
-                          //   //   height:50,
-                          //   //   width: 50,
-                          //   // ),
-                          // ),
-                          IconButton(
-                            onPressed: ()=>execTraceroute(),
-                             icon:Icon(isRunning ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,color:isRunning ? const Color(0xffF4CE14) : const Color(0xff379777),size: 50,)),
-                          const SizedBox(width: 20,),
-                          Row(
-                            children: [
-                              const Text('Target Name/IP',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16,color: Colors.white)),
-                              const SizedBox(width: 20,),
-                              Container(
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15)
-                                ),
-                                width: 200,
-                                padding:const EdgeInsets.symmetric(horizontal: 20),
-                                child:TextFormField(
-                                  onChanged:(text) {
-                                    setText(text,'ip');
-                                  },
-                                  style:const TextStyle(fontSize: 18),
-                                  textAlign: TextAlign.center,
-                                  initialValue: '1.1.1.1',
-                                  decoration:const InputDecoration(
-                                    hintText: 'IP/Domain',
-                                    border: InputBorder.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 40,),
-                              const Text('Time Interval',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16,color: Colors.white)),
-                              const SizedBox(width: 20,),
-                              Container(
-                                height: 40,
-                                margin:const EdgeInsets.only(right: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15)
-                                ),
-                                width: 100,
-                                padding:const EdgeInsets.symmetric(horizontal: 20),
-                                child:TextFormField(
-                                  onChanged:(text) {
-                                    setText(text,'interval');
-                                  },
-                                  style:const TextStyle(fontSize: 18),
-                                  initialValue: '1000',
-                                  textAlign: TextAlign.center,
-                                  decoration:const InputDecoration(
-                                    hintText: 'Milliseconds',
-                                    border: InputBorder.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 40,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Text('ms',style: TextStyle(fontSize: 16,color: Colors.white,fontWeight: FontWeight.bold),),
-                                  ],
-                                ),
-                              )
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          decoration:const BoxDecoration(
-                            borderRadius: BorderRadius.only(topLeft: Radius.circular(20),bottomLeft: Radius.circular(20)),
-                            color: Color(0xff379777)
-                          ),
-                          width: 100,
-                          height: 40,
-                          child:const Center(
-                            child: Text('0-100',style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: Colors.white),),
-                          ),
-                        ),
-                        Container(
-                          decoration:const BoxDecoration(
-                            color: Color(0xffF4CE14)
-                          ),
-                          width: 100,
-                          height: 40,
-                          child:const Center(
-                            child: Text('100-200',style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: Colors.white),),
-                          ),
-                        ),
-                        Container(
-                          decoration:const BoxDecoration(
-                            borderRadius: BorderRadius.only(topRight: Radius.circular(20),bottomRight: Radius.circular(20)),
-                            color: Color(0xffDC143C)
-                          ),
-                          width: 100,
-                          height: 40,
-                          child:const Center(
-                            child: Text('200+',style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: Colors.white),),
-                          ),
-                        ),
-                        const SizedBox(width: 20,),
-                        IconButton(onPressed: ()=>{showSettings()}, icon:const Icon(Icons.settings, color: Colors.white,size: 40,)),
-                        const SizedBox(width: 10,)
-                      ],
-                    )
-                  ],
+    final colors = appColors(context);
+    final type = appTypography(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenClass = screenClassForWidth(constraints.maxWidth);
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: colors.panelBackground,
+            border: Border.all(color: colors.borderColor),
+            borderRadius: screenClass == ScreenClass.mobile
+                ? BorderRadius.zero
+                : const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+          ),
+          child: screenClass == ScreenClass.mobile
+              ? _MobileNavbar(
+                  colors: colors,
+                  type: type,
+                  ipController: ipController,
+                  intervalController: intervalController,
+                  setText: setText,
+                  execTraceroute: execTraceroute,
+                  isRunning: isRunning,
+                  showSettings: showSettings,
+                  onExport: onExport,
+                  onReset: onReset,
+                  hasData: hasData,
+                )
+              : _WideNavbar(
+                  colors: colors,
+                  type: type,
+                  ipController: ipController,
+                  intervalController: intervalController,
+                  setText: setText,
+                  execTraceroute: execTraceroute,
+                  isRunning: isRunning,
+                  showSettings: showSettings,
+                  onExport: onExport,
+                  onReset: onReset,
+                  hasData: hasData,
+                  wrap: screenClass == ScreenClass.tablet,
                 ),
+        );
+      },
+    );
+  }
+}
+
+class _WideNavbar extends StatelessWidget {
+  const _WideNavbar({
+    required this.colors,
+    required this.type,
+    required this.ipController,
+    required this.intervalController,
+    required this.setText,
+    required this.execTraceroute,
+    required this.isRunning,
+    required this.showSettings,
+    required this.wrap,
+    this.onExport,
+    this.onReset,
+    this.hasData = false,
+  });
+
+  final AppColors colors;
+  final AppTypography type;
+  final TextEditingController ipController;
+  final TextEditingController intervalController;
+  final Function(String text, String type)? setText;
+  final VoidCallback execTraceroute;
+  final bool isRunning;
+  final VoidCallback showSettings;
+  final bool wrap;
+  final VoidCallback? onExport;
+  final VoidCallback? onReset;
+  final bool hasData;
+
+  @override
+  Widget build(BuildContext context) {
+    final isResumable = !isRunning && hasData;
+
+    final playButton = Tooltip(
+      message: isRunning
+          ? 'Pause Probing (⌘R)'
+          : isResumable
+              ? 'Resume Probing (⌘R)'
+              : 'Start Traceroute (⌘R / Enter)',
+      child: IconButton(
+        icon: Icon(
+          isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
+          color: isRunning ? colors.latencyWarn : colors.latencyGood,
+          size: 38,
+        ),
+        onPressed: () => execTraceroute(),
+      ),
+    );
+
+    final resetButton = onReset != null
+        ? Tooltip(
+            message: 'Reset Session & Clear Telemetry',
+            child: IconButton(
+              icon: Icon(
+                FluentIcons.refresh,
+                color: hasData ? colors.textSecondary : colors.textSecondary.withValues(alpha: 0.35),
+                size: 20,
+              ),
+              onPressed: hasData ? onReset : null,
+            ),
+          )
+        : null;
+
+    final targetField = _LabeledField(
+      label: 'Target Name / IP',
+      typography: type,
+      child: TargetInputWithHistory(
+        key: ValueKey(ipController),
+        controller: ipController,
+        typography: type,
+        colors: colors,
+        onChanged: (text) => setText?.call(text, 'ip'),
+        width: 250,
+      ),
+    );
+
+    final intervalField = _LabeledField(
+      label: 'Ping Interval',
+      typography: type,
+      child: SizedBox(
+        width: 110,
+        child: TextBox(
+          placeholder: 'ms',
+          textAlign: TextAlign.center,
+          style: type.body,
+          controller: intervalController,
+          suffix: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text('ms', style: type.caption),
+          ),
+          onChanged: (text) => setText?.call(text, 'interval'),
+        ),
+      ),
+    );
+
+    final directoryButton = Tooltip(
+      message: 'IP Directory & Saved Targets (⌘D)',
+      child: IconButton(
+        icon: Icon(FluentIcons.contact_list, color: colors.textSecondary, size: 22),
+        onPressed: () => showTargetDirectoryDialog(
+          context,
+          initialTarget: ipController.text,
+          onSelectTarget: (target) {
+            ipController.text = target;
+            setText?.call(target, 'ip');
+          },
+        ),
+      ),
+    );
+
+    final infoButton = Tooltip(
+      message: 'Network Diagnostics & System Info (⌘I)',
+      child: IconButton(
+        icon: Icon(FluentIcons.info, color: colors.textSecondary, size: 21),
+        onPressed: () => showNetworkInfoDialog(context),
+      ),
+    );
+
+    final exportButton = onExport != null
+        ? Tooltip(
+            message: 'Export & Share Report (MTR / CSV / JSON)',
+            child: IconButton(
+              icon: Icon(FluentIcons.share, color: colors.textSecondary, size: 20),
+              onPressed: onExport,
+            ),
+          )
+        : null;
+
+    final legend = _LatencyLegend(colors: colors, type: type);
+    final settingsButton = Tooltip(
+      message: 'Settings (⌘,)',
+      child: IconButton(
+        icon: Icon(FluentIcons.settings, color: colors.textSecondary, size: 22),
+        onPressed: () => showSettings(),
+      ),
+    );
+
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 12,
+      children: [
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            playButton,
+            if (resetButton != null) resetButton,
+            targetField,
+            intervalField,
+          ],
+        ),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            legend,
+            directoryButton,
+            infoButton,
+            if (exportButton != null) exportButton,
+            settingsButton,
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileNavbar extends StatelessWidget {
+  const _MobileNavbar({
+    required this.colors,
+    required this.type,
+    required this.ipController,
+    required this.intervalController,
+    required this.setText,
+    required this.execTraceroute,
+    required this.isRunning,
+    required this.showSettings,
+    this.onExport,
+    this.onReset,
+    this.hasData = false,
+  });
+
+  final AppColors colors;
+  final AppTypography type;
+  final TextEditingController ipController;
+  final TextEditingController intervalController;
+  final Function(String text, String type)? setText;
+  final VoidCallback execTraceroute;
+  final bool isRunning;
+  final VoidCallback showSettings;
+  final VoidCallback? onExport;
+  final VoidCallback? onReset;
+  final bool hasData;
+
+  @override
+  Widget build(BuildContext context) {
+    final isResumable = !isRunning && hasData;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Tooltip(
+              message: isRunning
+                  ? 'Pause Probing'
+                  : isResumable
+                      ? 'Resume Probing'
+                      : 'Start Traceroute',
+              child: IconButton(
+                icon: Icon(
+                  isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
+                  color: isRunning ? colors.latencyWarn : colors.latencyGood,
+                  size: 34,
+                ),
+                onPressed: () => execTraceroute(),
               ),
             ),
-          ),
+            if (onReset != null)
+              Tooltip(
+                message: 'Reset Session & Telemetry',
+                child: IconButton(
+                  icon: Icon(
+                    FluentIcons.refresh,
+                    color: hasData ? colors.textSecondary : colors.textSecondary.withValues(alpha: 0.35),
+                    size: 16,
+                  ),
+                  onPressed: hasData ? onReset : null,
+                ),
+              ),
+            Expanded(
+              child: TargetInputWithHistory(
+                key: ValueKey(ipController),
+                controller: ipController,
+                typography: type,
+                colors: colors,
+                onChanged: (text) => setText?.call(text, 'ip'),
+                width: double.infinity,
+              ),
+            ),
+            const SizedBox(width: 2),
+            IconButton(
+              icon: Icon(FluentIcons.contact_list, color: colors.textSecondary, size: 18),
+              onPressed: () => showTargetDirectoryDialog(
+                context,
+                initialTarget: ipController.text,
+                onSelectTarget: (target) {
+                  ipController.text = target;
+                  setText?.call(target, 'ip');
+                },
+              ),
+            ),
+            IconButton(
+              icon: Icon(FluentIcons.info, color: colors.textSecondary, size: 18),
+              onPressed: () => showNetworkInfoDialog(context),
+            ),
+            if (onExport != null)
+              IconButton(
+                icon: Icon(FluentIcons.share, color: colors.textSecondary, size: 18),
+                onPressed: onExport,
+              ),
+            IconButton(
+              icon: Icon(FluentIcons.settings, color: colors.textSecondary, size: 18),
+              onPressed: () => showSettings(),
+            ),
+          ],
         ),
-      );
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Interval', style: type.caption),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 90,
+                  child: TextBox(
+                    placeholder: 'ms',
+                    textAlign: TextAlign.center,
+                    style: type.body,
+                    controller: intervalController,
+                    onChanged: (text) => setText?.call(text, 'interval'),
+                  ),
+                ),
+              ],
+            ),
+            _LatencyLegend(colors: colors, type: type, compact: true),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class TargetInputWithHistory extends StatefulWidget {
+  const TargetInputWithHistory({
+    super.key,
+    required this.controller,
+    required this.typography,
+    required this.colors,
+    required this.onChanged,
+    required this.width,
+  });
+
+  final TextEditingController controller;
+  final AppTypography typography;
+  final AppColors colors;
+  final ValueChanged<String> onChanged;
+  final double width;
+
+  @override
+  State<TargetInputWithHistory> createState() => _TargetInputWithHistoryState();
+}
+
+class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
+  final FlyoutController _flyoutController = FlyoutController();
+
+  @override
+  void dispose() {
+    _flyoutController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: TargetDirectory.instance,
+      builder: (context, _) {
+        final currentText = widget.controller.text.trim();
+        final isSaved = TargetDirectory.instance.isSaved(currentText);
+        final recent = TargetDirectory.instance.recentIps;
+
+        return SizedBox(
+          width: widget.width == double.infinity ? null : widget.width,
+          child: Row(
+            mainAxisSize: widget.width == double.infinity ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              Expanded(
+                child: FlyoutTarget(
+                  controller: _flyoutController,
+                  child: AutoSuggestBox<String>(
+                    key: ValueKey(widget.controller),
+                    controller: widget.controller,
+                    placeholder: 'IP or domain',
+                    items: recent.map((ip) {
+                      final saved = TargetDirectory.instance.getSavedTarget(ip);
+                      return AutoSuggestBoxItem<String>(
+                        value: ip,
+                        label: ip,
+                        child: saved != null
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(ip),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    saved.name,
+                                    style: widget.typography.caption.copyWith(
+                                      color: widget.colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(ip),
+                      );
+                    }).toList(),
+                    onSelected: (item) {
+                      if (item.value != null) {
+                        widget.controller.text = item.value!;
+                        widget.onChanged(item.value!);
+                      }
+                    },
+                    onChanged: (text, reason) {
+                      widget.onChanged(text);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Star bookmark button
+              Tooltip(
+                message: isSaved ? 'Bookmarked in Directory' : 'Bookmark Target',
+                child: IconButton(
+                  icon: Icon(
+                    isSaved ? FluentIcons.favorite_star_fill : FluentIcons.favorite_star,
+                    color: isSaved ? Colors.warningPrimaryColor : widget.colors.textSecondary,
+                    size: 16,
+                  ),
+                  onPressed: () {
+                    TargetDirectory.instance.toggleFavorite(widget.controller.text);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({required this.label, required this.typography, required this.child});
+  final String label;
+  final AppTypography typography;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label, style: typography.subtitle),
+        const SizedBox(width: 12),
+        child,
+      ],
+    );
+  }
+}
+
+class _LatencyLegend extends StatelessWidget {
+  const _LatencyLegend({required this.colors, required this.type, this.compact = false});
+  final AppColors colors;
+  final AppTypography type;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LegendChip(label: compact ? '0-100' : '0-100ms', color: colors.latencyGood, textStyle: type.caption, compact: compact),
+          _LegendChip(label: compact ? '100-200' : '100-200ms', color: colors.latencyWarn, textStyle: type.caption, compact: compact),
+          _LegendChip(label: compact ? '200+' : '200ms+', color: colors.latencyBad, textStyle: type.caption, compact: compact),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({required this.label, required this.color, required this.textStyle, this.compact = false});
+  final String label;
+  final Color color;
+  final TextStyle textStyle;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color,
+      width: compact ? 62 : 88,
+      height: compact ? 26 : 32,
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: textStyle.copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: compact ? 10 : null),
+      ),
+    );
   }
 }

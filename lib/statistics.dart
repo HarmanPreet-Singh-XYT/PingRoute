@@ -1,5 +1,8 @@
 import 'package:PingRoute/graph.dart';
-import 'package:flutter/material.dart';
+import 'package:fluent_ui/fluent_ui.dart';
+import 'theme.dart';
+import 'breakpoints.dart';
+import 'shared_widgets.dart';
 
 class Statistics extends StatefulWidget {
   const Statistics({
@@ -16,7 +19,7 @@ class Statistics extends StatefulWidget {
     required this.toggleStatistics,
     required this.dataTypes,
     required this.setDataType,
-    });
+  });
   final List<Map<String, dynamic>> IPStats;
   final List<Map<String, dynamic>> deepStats;
   final int totalPackets;
@@ -27,7 +30,7 @@ class Statistics extends StatefulWidget {
   final bool dataCollected;
   final bool success;
   final Function() toggleStatistics;
-  final Function(int index,String type) setDataType;
+  final Function(int index, String type) setDataType;
   final List<Map<String, dynamic>> dataTypes;
 
   @override
@@ -37,288 +40,180 @@ class Statistics extends StatefulWidget {
 class _StatisticsState extends State<Statistics> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            child: Column(
-              children: [
-                // Navbar widget, assuming you can modify it to include a settings button or use an external button
-                Container(
-                  constraints:const BoxConstraints(minWidth: 1100,minHeight: 60),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue,width: 2),
-                    borderRadius: BorderRadius.circular(20)
+    final colors = appColors(context);
+    final type = appTypography(context);
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 60),
+        clipBehavior: Clip.hardEdge,
+        width: MediaQuery.of(context).size.width * 0.95,
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: colors.panelBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.borderColor),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 24, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: colors.borderColor)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('All hops', style: type.title),
+                  IconButton(
+                    icon: Icon(FluentIcons.chrome_close, size: 16, color: colors.textSecondary),
+                    onPressed: () => widget.toggleStatistics(),
                   ),
-                  clipBehavior: Clip.hardEdge,
-                  width: MediaQuery.of(context).size.width*0.95,
-                  child: Container(
-                    height: MediaQuery.of(context).size.height*0.85,
-                    decoration:const BoxDecoration(
-                      color: Color(0xff45474B),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const SizedBox(height: 60,),
-                            ElevatedButton(
-                              onPressed: () {
-                                // Define your action here
-                                widget.toggleStatistics();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16,horizontal: 5),
-                                textStyle: const TextStyle(fontSize: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child:const Text('Close',style:TextStyle(fontWeight:FontWeight.bold),),
-                            ),
-                            const SizedBox(width: 10,),
-                          ],
-                        ),
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height*0.75,
-                          width: MediaQuery.of(context).size.width*0.9,
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: widget.deepStats.asMap().entries.map((entry) {
-                                int index = entry.key;
-                                var deepStat = entry.value;
-                                var ipStat = widget.IPStats[index];
-                            
-                            
-                                return Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        // Table with statistics
-                                        SizedBox(
-                                          width: MediaQuery.of(context).size.width * 0.32,
-                                          height: 440, // Adjust height to fit content
-                                          child: Column(
-                                            children: [
-                                              Table(
-                                                columnWidths: const {
-                                                  1: FlexColumnWidth(1),
-                                                  2: FlexColumnWidth(2),
-                                                },
-                                                border: TableBorder.all(
-                                                  color: Colors.blue,
-                                                  width: 1,
-                                                ),
-                                                children: [
-                                                  _buildTableRow('Hop', '${index+1}'),
-                                                  _buildTableRow('Jitter', '${deepStat['jitter'].last['value']}ms'),
-                                                  _buildTableRow('Latency', '${deepStat['pings'].last['value']}ms'),
-                                                  _buildTableRow('Minimum', '${ipStat['min']}ms'),
-                                                  _buildTableRow('IP Address', '${ipStat['ip']}'),
-                                                  _buildTableRow('Maximum', '${ipStat['max']}ms'),
-                                                  _buildTableRow('Packet Loss', '${deepStat['pl'].last['value']}%'),
-                                                  _buildTableRow('Domain Name', '${ipStat['name']}'),
-                                                  _buildTableRow('Average Latency', '${deepStat['avg'].last['value']}ms'),
-                                                  _buildTableRow('Total Packets Sent/Received', '${ipStat['sentPackets']}/${ipStat['receivedPackets']}'),
-                                                  _buildTableRow('Total Packets', '${widget.totalPackets}'),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        
-                                        // Graph
-                                        if (widget.deepStats.isNotEmpty)
-                                          SizedBox(
-                                            width: MediaQuery.of(context).size.width * 0.48,
-                                            height: 400,
-                                            child: Graph(
-                                              data: deepStat,
-                                              dataType: widget.dataTypes[index]['dataType'],
-                                              interval: widget.interval,
-                                              isRunning: widget.isRunning,
-                                            ),
-                                          ),
-                                          
-                                        SizedBox(
-                                          width: MediaQuery.of(context).size.width * 0.1,
-                                          height: 400, // Set height to allow scrolling
-                                          child: SingleChildScrollView(
-                                            child: Column(
-                                              children: [
-                                                Table(
-                                                  columnWidths: const {
-                                                    0: FlexColumnWidth(1),
-                                                  },
-                                                  border: TableBorder.all(
-                                                    color: Colors.blueAccent,
-                                                    width: 1,
-                                                    borderRadius: const BorderRadius.all(Radius.circular(20))
-                                                  ),
-                                                  children: [
-                                                    TableRow(
-                                                      children: [
-                                                        Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: ElevatedButton(
-                                                            onPressed: () {
-                                                              widget.setDataType(index, 'jt');
-                                                            },
-                                                            style: ElevatedButton.styleFrom(
-                                                              padding: const EdgeInsets.symmetric(vertical: 16),
-                                                              textStyle: const TextStyle(fontSize: 16),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius: BorderRadius.circular(12),
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              'Jitter',
-                                                              style: TextStyle(
-                                                                fontWeight: widget.dataTypes[index]['dataType'] == 'jt' ? FontWeight.bold : FontWeight.normal,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    TableRow(
-                                                      children: [
-                                                        Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: ElevatedButton(
-                                                            onPressed: () {
-                                                              widget.setDataType(index, 'lt');
-                                                            },
-                                                            style: ElevatedButton.styleFrom(
-                                                              padding: const EdgeInsets.symmetric(vertical: 16),
-                                                              textStyle: const TextStyle(fontSize: 16),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius: BorderRadius.circular(12),
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              'Latency',
-                                                              style: TextStyle(
-                                                                fontWeight: widget.dataTypes[index]['dataType'] == 'lt' ? FontWeight.bold : FontWeight.normal,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    TableRow(
-                                                      children: [
-                                                        Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: ElevatedButton(
-                                                            onPressed: () {
-                                                              widget.setDataType(index, 'pl');
-                                                            },
-                                                            style: ElevatedButton.styleFrom(
-                                                              padding: const EdgeInsets.symmetric(vertical: 16),
-                                                              textStyle: const TextStyle(fontSize: 16),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius: BorderRadius.circular(12),
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              'Packet Loss',
-                                                              style: TextStyle(
-                                                                fontWeight: widget.dataTypes[index]['dataType'] == 'pl' ? FontWeight.bold : FontWeight.normal,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    TableRow(
-                                                      children: [
-                                                        Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: ElevatedButton(
-                                                            onPressed: () {
-                                                              widget.setDataType(index, 'alt');
-                                                            },
-                                                            style: ElevatedButton.styleFrom(
-                                                              padding: const EdgeInsets.symmetric(vertical: 16),
-                                                              textStyle: const TextStyle(fontSize: 16),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius: BorderRadius.circular(12),
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              'Average Latency',
-                                                              style: TextStyle(
-                                                                fontWeight: widget.dataTypes[index]['dataType'] == 'alt' ? FontWeight.bold : FontWeight.normal,
-                                                              ),
-                                                              textAlign: TextAlign.center,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(color: Colors.blue,),
-                                    const SizedBox(height: 10,)
-                                  ],
-                                );
-                              }).toList(), // Converts the map to a list of widgets
-                            ),
-                          ),
-                        )
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: widget.deepStats.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final deepStat = entry.value;
+                    final ipStat = widget.IPStats[index];
+
+                    final String jitterVal = (deepStat['jitter'] as List).isNotEmpty ? '${deepStat['jitter'].last['value']}ms' : '-';
+                    final String latencyVal = (deepStat['pings'] as List).isNotEmpty && deepStat['pings'].last['value'] != -1 ? '${deepStat['pings'].last['value']}ms' : '-';
+                    final String minVal = ipStat['min'] != -1 ? '${ipStat['min']}ms' : '-';
+                    final String maxVal = ipStat['max'] != -1 ? '${ipStat['max']}ms' : '-';
+                    final String plVal = (deepStat['pl'] as List).isNotEmpty ? '${deepStat['pl'].last['value']}%' : '0%';
+                    final String avgVal = ipStat['avg'] != -1 ? '${ipStat['avg']}ms' : '-';
+
+                    final statTable = _HopStatTable(
+                      colors: colors,
+                      type: type,
+                      hopNumber: index + 1,
+                      rows: [
+                        ('Jitter', jitterVal),
+                        ('Latency', latencyVal),
+                        ('Minimum', minVal),
+                        ('IP Address', '${ipStat['ip']}'),
+                        ('Maximum', maxVal),
+                        ('Packet Loss', plVal),
+                        ('Domain Name', '${ipStat['name']}'),
+                        ('Average Latency', avgVal),
+                        ('Sent / Received', '${ipStat['sentPackets']}/${ipStat['receivedPackets']}'),
+                        ('Total Packets', '${widget.totalPackets}'),
                       ],
+                    );
+                    final graph = widget.deepStats.isNotEmpty
+                        ? Graph(
+                            data: deepStat,
+                            dataType: widget.dataTypes[index]['dataType'],
+                            interval: widget.interval,
+                            isRunning: widget.isRunning,
+                          )
+                        : const SizedBox.shrink();
+                    final selector = GraphTypeColumn(
+                      dataType: widget.dataTypes[index]['dataType'],
+                      onSelect: (t) => widget.setDataType(index, t),
+                    );
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.panelBackgroundAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colors.borderColor),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (screenClassForWidth(constraints.maxWidth) == ScreenClass.desktop) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(width: constraints.maxWidth * 0.28, child: statTable),
+                                  SizedBox(width: constraints.maxWidth * 0.45, height: 400, child: graph),
+                                  SizedBox(width: constraints.maxWidth * 0.12, child: selector),
+                                ],
+                              );
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                statTable,
+                                const SizedBox(height: 12),
+                                SizedBox(height: 260, child: graph),
+                                const SizedBox(height: 12),
+                                selector,
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HopStatTable extends StatelessWidget {
+  const _HopStatTable({required this.colors, required this.type, required this.hopNumber, required this.rows});
+  final AppColors colors;
+  final AppTypography type;
+  final int hopNumber;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.panelBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.borderColor),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: colors.accent.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+            ),
+            child: Text('Hop $hopNumber', style: type.bodyStrong.copyWith(color: colors.accent)),
+          ),
+          for (int i = 0; i < rows.length; i++)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: i.isOdd ? colors.panelBackgroundAlt : colors.panelBackground),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(rows[i].$1, style: type.caption),
+                  Flexible(
+                    child: Text(
+                      rows[i].$2,
+                      style: type.body,
+                      textAlign: TextAlign.right,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-    
         ],
-      );
-  }
-  TableRow _buildTableRow(String label, String value) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,  // Enable horizontal scrolling
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.visible,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,  // Enable horizontal scrolling
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.visible,  // Ensure overflow is visible to trigger scrolling
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

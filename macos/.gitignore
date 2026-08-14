@@ -5,3 +5,8 @@
 # Xcode-related
 **/dgph
 **/xcuserdata/
+
+# Native traceroute library build output (compiled by a Run Script build
+# phase straight into the Xcode build products dir; nothing should normally
+# land in-tree, this is a safety net).
+network_library/build/

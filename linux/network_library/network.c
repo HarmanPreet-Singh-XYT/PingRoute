@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include "network.h"
 
 #define MAX_HOPS 30
 #define MAX_TRIES 1

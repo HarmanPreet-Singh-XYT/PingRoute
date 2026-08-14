@@ -1,30 +1,31 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+// Responsive-layout smoke test: renders the app shell at representative
+// phone/tablet/desktop widths and confirms nothing throws a layout
+// exception (e.g. RenderFlex overflow), since the app has no automated
+// visual regression coverage.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:PingRoute/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MainApp());
+  final widths = <String, double>{
+    'phone': 375,
+    'tablet': 800,
+    'desktop': 1400,
+  };
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  for (final entry in widths.entries) {
+    testWidgets('renders at ${entry.key} width (${entry.value}px) without layout errors', (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(Size(entry.value, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      await tester.pumpWidget(const PingRouteApp());
+      await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+      // A render overflow throws during the pump above; reaching here with
+      // no exception means the tree laid out successfully. Also assert the
+      // navbar's target field is present as a baseline sanity check.
+      expect(find.byType(TextBox), findsWidgets);
+    });
+  }
 }

@@ -1,23 +1,30 @@
-import 'package:flutter/material.dart';
+import 'package:fluent_ui/fluent_ui.dart';
+import 'theme.dart';
+
 void showErrorPopup(BuildContext context) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
-      return AlertDialog(
-        title:const Row(
+      final colors = appColors(context);
+      final type = appTypography(context);
+      return ContentDialog(
+        constraints: const BoxConstraints(maxWidth: 380),
+        title: Row(
           children: [
-            Icon(Icons.error, color: Colors.red),  // Error icon
-            SizedBox(width: 8),
-            Text('Error',style: TextStyle(fontWeight: FontWeight.bold),),
+            Icon(FluentIcons.error_badge, color: colors.latencyBad),
+            const SizedBox(width: 8),
+            Text('Connection error', style: type.title),
           ],
         ),
-        content:const Text('Please check your network connection.',style: TextStyle(fontWeight: FontWeight.w600),),
-        actions: <Widget>[
-          TextButton(
-            child:const Text('Close'),
-            onPressed: () {
-              Navigator.of(context).pop();  // Close the popup
-            },
+        content: Text(
+          'PingRoute could not reach that target. Check the IP address or '
+          'domain and your network connection, then try again.',
+          style: type.body,
+        ),
+        actions: [
+          FilledButton(
+            child: const Text('Close'),
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       );

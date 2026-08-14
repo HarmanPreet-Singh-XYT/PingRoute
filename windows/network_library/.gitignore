@@ -1,0 +1,16 @@
+# Local Visual Studio / CMake build output for the network_library
+# CMake subproject. This is regenerated automatically whenever the main
+# Flutter Windows build runs (see ../CMakeLists.txt's add_subdirectory).
+.vs/
+CMakeFiles/
+Debug/
+Release/
+network.dir/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+ALL_BUILD.*
+ZERO_CHECK.*
+cmake_install.cmake
+CMakeCache.txt

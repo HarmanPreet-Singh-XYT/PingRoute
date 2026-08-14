@@ -1,6 +1,8 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as p;
+
 typedef GetTracerouteArrayC = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
 typedef GetTracerouteArrayDart = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, Pointer<Int32>);
 
@@ -12,19 +14,25 @@ class NetworkLib {
   late GetTracerouteArrayDart getTracerouteArray;
   late FreeTracerouteArrayDart freeTracerouteArray;
 
+  // Resolves the native library relative to the running executable rather
+  // than the process's current working directory, so it's found regardless
+  // of how/where the app was launched from.
+  static String _resolveLibraryPath() {
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    if (Platform.isWindows) {
+      return p.join(exeDir, 'network.dll');
+    }
+    if (Platform.isLinux) {
+      return p.join(exeDir, 'lib', 'libnetwork.so');
+    }
+    if (Platform.isMacOS) {
+      return p.join(exeDir, '..', 'Frameworks', 'libnetwork.dylib');
+    }
+    throw UnsupportedError('Unsupported platform');
+  }
+
   NetworkLib() {
-    var libraryPath = 'lib/libnetwork.so';
-
-      if (Platform.isMacOS) {
-        libraryPath = 'libnetwork.dylib';
-      }
-
-      if (Platform.isWindows) {
-        libraryPath = 'network.dll';
-      }
-    _lib = (Platform.isWindows || Platform.isLinux)
-        ? DynamicLibrary.open(libraryPath)
-        : throw UnsupportedError('Unsupported platform');
+    _lib = DynamicLibrary.open(_resolveLibraryPath());
 
     getTracerouteArray = _lib
         .lookupFunction<GetTracerouteArrayC, GetTracerouteArrayDart>('get_traceroute_array');

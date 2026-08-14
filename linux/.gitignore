@@ -1,1 +1,9 @@
 flutter/ephemeral
+
+# Local CMake build output for the network_library subproject, in case of
+# an in-tree build (out-of-tree builds under build/ are already untracked).
+network_library/CMakeFiles/
+network_library/CMakeCache.txt
+network_library/cmake_install.cmake
+network_library/Makefile
+network_library/*.so*
