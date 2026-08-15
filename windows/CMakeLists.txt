@@ -78,15 +78,6 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
-# Copy the native traceroute library next to the executable so `flutter run`
-# (which runs the build tree binary directly, not the installed bundle) can
-# find it too.
-add_custom_command(TARGET network POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "$<TARGET_FILE:network>" "${BUILD_BUNDLE_DIR}"
-  COMMENT "Copying network.dll next to the runner executable"
-)
-
 install(FILES "$<TARGET_FILE:network>" DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 

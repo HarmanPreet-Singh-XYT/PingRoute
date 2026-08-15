@@ -17,3 +17,14 @@ set_target_properties(network PROPERTIES LINK_FLAGS "/DEF:${CMAKE_CURRENT_SOURCE
 
 # Link necessary libraries for Windows networking
 target_link_libraries(network ws2_32 iphlpapi)
+
+# Copy the native traceroute library next to the executable so `flutter run`
+# (which runs the build tree binary directly, not the installed bundle) can
+# find it too.
+if(DEFINED BINARY_NAME)
+  add_custom_command(TARGET network POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:network>" "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+    COMMENT "Copying network.dll next to the runner executable"
+  )
+endif()
