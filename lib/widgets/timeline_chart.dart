@@ -112,78 +112,86 @@ class _TimelineChartState extends State<TimelineChart> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
               border: Border(bottom: BorderSide(color: colors.borderColor)),
             ),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Icon(FluentIcons.history, size: 13, color: colors.accent),
-                const SizedBox(width: 6),
-                Text(
-                  'Hop ${widget.selectedHop} Timeline',
-                  style: type.caption.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Live Status Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isLiveHead
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.orange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isLiveHead ? Colors.green : Colors.orange,
-                      width: 0.8,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(FluentIcons.history, size: 13, color: colors.accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Hop ${widget.selectedHop}',
+                      style: type.caption.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
+                    const SizedBox(width: 6),
+                    // Live Status Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isLiveHead
+                            ? Colors.green.withValues(alpha: 0.15)
+                            : Colors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
                           color: isLiveHead ? Colors.green : Colors.orange,
+                          width: 0.8,
                         ),
                       ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isLiveHead ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isLiveHead ? 'LIVE' : 'HISTORICAL',
+                            style: type.caption.copyWith(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: isLiveHead ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isLiveHead) ...[
                       const SizedBox(width: 4),
-                      Text(
-                        isLiveHead ? 'LIVE' : 'HISTORICAL',
-                        style: type.caption.copyWith(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: isLiveHead ? Colors.green : Colors.orange,
+                      Tooltip(
+                        message: 'Jump to most recent live telemetry',
+                        child: Button(
+                          onPressed: () => setState(() => _scrubberProgress = 1.0),
+                          child: Text('Live ⏩', style: type.caption.copyWith(fontSize: 10)),
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                if (!isLiveHead) ...[
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: 'Jump to most recent live telemetry',
-                    child: Button(
-                      onPressed: () => setState(() => _scrubberProgress = 1.0),
-                      child: Text('Go Live ⏩', style: type.caption.copyWith(fontSize: 10)),
-                    ),
+                if (startTimeStr.isNotEmpty)
+                  Text(
+                    '$startTimeStr – $endTimeStr (${visiblePings.length} pts)',
+                    style: type.caption.copyWith(color: colors.textSecondary, fontSize: 10),
                   ),
-                ],
-                const Spacer(),
-                Text(
-                  'Focus: $startTimeStr – $endTimeStr (${visiblePings.length} pts)',
-                  style: type.caption.copyWith(color: colors.textSecondary, fontSize: 11),
-                ),
-                const SizedBox(width: 10),
                 ComboBox<String>(
                   value: _focusTimePreset,
                   items: const [
-                    ComboBoxItem(value: '30s', child: Text('30 sec (Live)')),
+                    ComboBoxItem(value: '30s', child: Text('30s (Live)')),
                     ComboBoxItem(value: '1m', child: Text('1 min')),
                     ComboBoxItem(value: '2m', child: Text('2 min')),
                     ComboBoxItem(value: '5m', child: Text('5 min')),
-                    ComboBoxItem(value: 'all', child: Text('All History')),
+                    ComboBoxItem(value: 'all', child: Text('All')),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -248,8 +256,11 @@ class _TimelineChartState extends State<TimelineChart> {
                 if (inspectedPoint != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 2,
                       children: [
                         Text('Inspected (${inspectedPoint['time']}): ', style: type.caption.copyWith(fontSize: 10, color: colors.textSecondary)),
                         Text(
@@ -260,14 +271,10 @@ class _TimelineChartState extends State<TimelineChart> {
                             color: inspectedPoint['value'] == -1 ? Colors.red : colors.accent,
                           ),
                         ),
-                        if (inspectedPoint['jitter'] != null) ...[
-                          const SizedBox(width: 10),
+                        if (inspectedPoint['jitter'] != null)
                           Text('Jitter: ${inspectedPoint['jitter']}ms', style: type.caption.copyWith(fontSize: 10, color: colors.textSecondary)),
-                        ],
-                        if (inspectedPoint['avg'] != null) ...[
-                          const SizedBox(width: 10),
+                        if (inspectedPoint['avg'] != null)
                           Text('Avg: ${inspectedPoint['avg']}ms', style: type.caption.copyWith(fontSize: 10, color: colors.textSecondary)),
-                        ],
                       ],
                     ),
                   ),

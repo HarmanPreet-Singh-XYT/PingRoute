@@ -1069,325 +1069,335 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           padding: EdgeInsets.zero,
           content: LayoutBuilder(
             builder: (context, constraints) {
-              if (screenClassForWidth(constraints.maxWidth) ==
-                  ScreenClass.mobile) {
-                return MobileShell(
-                  flows: _flows,
-                  currentFlowIndex: activeIndex,
-                  onFlowSelected: (index) =>
-                      setState(() => _currentIndex = index),
-                  onAddFlow: () => _addNewFlow(initialIp: '8.8.8.8'),
-                  onCloseFlow: _closeFlow,
-                  showSettings: () {
-                    if (currentFlow != null) {
-                      _openFlowSettings(currentFlow);
-                    }
-                  },
-                );
-              }
+              final isMobile = screenClassForWidth(constraints.maxWidth) ==
+                  ScreenClass.mobile;
+
+              final mainContent = isMobile
+                  ? MobileShell(
+                      flows: _flows,
+                      currentFlowIndex: activeIndex,
+                      onFlowSelected: (index) =>
+                          setState(() => _currentIndex = index),
+                      onAddFlow: () => _addNewFlow(initialIp: '8.8.8.8'),
+                      onCloseFlow: _closeFlow,
+                      showSettings: () {
+                        if (currentFlow != null) {
+                          _openFlowSettings(currentFlow);
+                        }
+                      },
+                      onExport: (flow) => showExportDialog(context, flow),
+                      onReset: () => currentFlow?.reset(),
+                      onOpenInNewTab: (ip) =>
+                          _addNewFlow(initialIp: ip, autoStart: true),
+                      onToggleStatistics: _toggleStatisticsVisibility,
+                      onDuplicateFlow: (flow) =>
+                          _addNewFlow(initialIp: flow.ip, autoStart: true),
+                      onCloseOtherFlows: _closeOtherFlows,
+                    )
+                  : Column(
+                      children: [
+                        // Desktop Top Header: Tab / Split Controls
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.pageBackground,
+                            border: Border(
+                              bottom: BorderSide(color: colors.borderColor),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  _ViewModePill(
+                                    label: 'Tabs',
+                                    icon: FluentIcons.tab,
+                                    isSelected: _viewMode == ViewMode.tabs,
+                                    onTap: () =>
+                                        setState(() => _viewMode = ViewMode.tabs),
+                                    colors: colors,
+                                    type: type,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _ViewModePill(
+                                    label: '2-Flow Split',
+                                    icon: FluentIcons.column_left_two_thirds,
+                                    isSelected: _viewMode == ViewMode.splitTwo,
+                                    onTap: () => setState(
+                                      () => _viewMode = ViewMode.splitTwo,
+                                    ),
+                                    colors: colors,
+                                    type: type,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _ViewModePill(
+                                    label: '4-Flow Grid',
+                                    icon: FluentIcons.grid_view_medium,
+                                    isSelected: _viewMode == ViewMode.splitGrid,
+                                    onTap: () => setState(
+                                      () => _viewMode = ViewMode.splitGrid,
+                                    ),
+                                    colors: colors,
+                                    type: type,
+                                  ),
+                                ],
+                              ),
+                              Button(
+                                onPressed: () =>
+                                    _addNewFlow(initialIp: '8.8.8.8'),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(FluentIcons.add, size: 12),
+                                    SizedBox(width: 4),
+                                    Text('New Flow (⌘T)'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Main Content Area
+                        Expanded(
+                          child: _viewMode == ViewMode.tabs
+                              ? TabView(
+                                  currentIndex: activeIndex,
+                                  onChanged: (index) =>
+                                      setState(() => _currentIndex = index),
+                                  onNewPressed: () =>
+                                      _addNewFlow(initialIp: '8.8.8.8'),
+                                  onReorder: (oldIndex, newIndex) {
+                                    setState(() {
+                                      if (oldIndex < newIndex) {
+                                        newIndex -= 1;
+                                      }
+                                      final item = _flows.removeAt(oldIndex);
+                                      final flyout = _tabFlyoutControllers
+                                          .removeAt(oldIndex);
+                                      _flows.insert(newIndex, item);
+                                      _tabFlyoutControllers.insert(
+                                        newIndex,
+                                        flyout,
+                                      );
+
+                                      if (_currentIndex == oldIndex) {
+                                        _currentIndex = newIndex;
+                                      } else if (oldIndex < _currentIndex &&
+                                          newIndex >= _currentIndex) {
+                                        _currentIndex -= 1;
+                                      } else if (oldIndex > _currentIndex &&
+                                          newIndex <= _currentIndex) {
+                                        _currentIndex += 1;
+                                      }
+                                    });
+                                  },
+                                  tabs: List.generate(_flows.length, (index) {
+                                    final flow = _flows[index];
+                                    final tabFlyout =
+                                        index < _tabFlyoutControllers.length
+                                        ? _tabFlyoutControllers[index]
+                                        : FlyoutController();
+
+                                    Widget leadingIcon;
+                                    if (flow.isRunning) {
+                                      leadingIcon = Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: colors.latencyGood,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      );
+                                    } else if (flow.isLoading) {
+                                      leadingIcon = const SizedBox(
+                                        width: 10,
+                                        height: 10,
+                                        child: ProgressRing(strokeWidth: 2),
+                                      );
+                                    } else {
+                                      leadingIcon = const Icon(
+                                        FluentIcons.network_tower,
+                                        size: 14,
+                                      );
+                                    }
+
+                                    return Tab(
+                                      text: FlyoutTarget(
+                                        controller: tabFlyout,
+                                        child: GestureDetector(
+                                          onSecondaryTapDown: (details) {
+                                            tabFlyout.showFlyout(
+                                              barrierColor: Colors.transparent,
+                                              autoModeConfiguration:
+                                                  FlyoutAutoConfiguration(
+                                                    preferredMode:
+                                                        FlyoutPlacementMode
+                                                            .bottomCenter,
+                                                  ),
+                                              builder: (context) => MenuFlyout(
+                                                items: [
+                                                  MenuFlyoutItem(
+                                                    leading: const Icon(
+                                                      FluentIcons.add,
+                                                      size: 14,
+                                                    ),
+                                                    text: const Text(
+                                                      'Duplicate Tab',
+                                                    ),
+                                                    onPressed: () {
+                                                      _addNewFlow(
+                                                        initialIp: flow.ip,
+                                                      );
+                                                      Navigator.of(context).pop();
+                                                    },
+                                                  ),
+                                                  MenuFlyoutItem(
+                                                    leading: const Icon(
+                                                      FluentIcons.share,
+                                                      size: 14,
+                                                    ),
+                                                    text: const Text(
+                                                      'Export Report',
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(context).pop();
+                                                      showExportDialog(
+                                                        context,
+                                                        flow,
+                                                      );
+                                                    },
+                                                  ),
+                                                  MenuFlyoutItem(
+                                                    leading: const Icon(
+                                                      FluentIcons.copy,
+                                                      size: 14,
+                                                    ),
+                                                    text: Text(
+                                                      'Copy Target (${flow.ip})',
+                                                    ),
+                                                    onPressed: () {
+                                                      Clipboard.setData(
+                                                        ClipboardData(
+                                                          text: flow.ip,
+                                                        ),
+                                                      );
+                                                      displayInfoBar(
+                                                        context,
+                                                        builder:
+                                                            (
+                                                              context,
+                                                              close,
+                                                            ) => InfoBar(
+                                                              title: const Text(
+                                                                'Copied',
+                                                              ),
+                                                              content: Text(
+                                                                '"${flow.ip}" copied to clipboard.',
+                                                              ),
+                                                              severity:
+                                                                  InfoBarSeverity
+                                                                      .success,
+                                                              ),
+                                                      );
+                                                      Navigator.of(context).pop();
+                                                    },
+                                                  ),
+                                                  if (_flows.length > 1) ...[
+                                                    const MenuFlyoutSeparator(),
+                                                    MenuFlyoutItem(
+                                                      leading: const Icon(
+                                                        FluentIcons.chrome_close,
+                                                        size: 14,
+                                                      ),
+                                                      text: const Text(
+                                                        'Close Tab',
+                                                      ),
+                                                      onPressed: () {
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop();
+                                                        _closeFlow(index);
+                                                      },
+                                                    ),
+                                                    MenuFlyoutItem(
+                                                      leading: const Icon(
+                                                        FluentIcons.clear,
+                                                        size: 14,
+                                                      ),
+                                                      text: const Text(
+                                                        'Close Other Tabs',
+                                                      ),
+                                                      onPressed: () {
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop();
+                                                        _closeOtherFlows(index);
+                                                      },
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                          child: ListenableBuilder(
+                                            listenable: flow.ipController,
+                                            builder: (context, _) {
+                                              return Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    flow.title,
+                                                    style: TextStyle(
+                                                      color: index == activeIndex
+                                                          ? colors.textPrimary
+                                                          : colors.textSecondary,
+                                                      fontWeight:
+                                                          index == activeIndex
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w500,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  if (index == activeIndex) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      decoration: BoxDecoration(
+                                                        color: colors.accent,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      icon: leadingIcon,
+                                      body: _buildDesktopFlowBody(flow, colors),
+                                      onClosed: _flows.length > 1
+                                          ? () => _closeFlow(index)
+                                          : null,
+                                    );
+                                  }),
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: _buildSplitView(colors, type),
+                                ),
+                        ),
+                      ],
+                    );
 
               return Stack(
                 children: [
-                  Column(
-                    children: [
-                      // Desktop Top Header: Tab / Split Controls
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.pageBackground,
-                          border: Border(
-                            bottom: BorderSide(color: colors.borderColor),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                _ViewModePill(
-                                  label: 'Tabs',
-                                  icon: FluentIcons.tab,
-                                  isSelected: _viewMode == ViewMode.tabs,
-                                  onTap: () =>
-                                      setState(() => _viewMode = ViewMode.tabs),
-                                  colors: colors,
-                                  type: type,
-                                ),
-                                const SizedBox(width: 6),
-                                _ViewModePill(
-                                  label: '2-Flow Split',
-                                  icon: FluentIcons.column_left_two_thirds,
-                                  isSelected: _viewMode == ViewMode.splitTwo,
-                                  onTap: () => setState(
-                                    () => _viewMode = ViewMode.splitTwo,
-                                  ),
-                                  colors: colors,
-                                  type: type,
-                                ),
-                                const SizedBox(width: 6),
-                                _ViewModePill(
-                                  label: '4-Flow Grid',
-                                  icon: FluentIcons.grid_view_medium,
-                                  isSelected: _viewMode == ViewMode.splitGrid,
-                                  onTap: () => setState(
-                                    () => _viewMode = ViewMode.splitGrid,
-                                  ),
-                                  colors: colors,
-                                  type: type,
-                                ),
-                              ],
-                            ),
-                            Button(
-                              onPressed: () =>
-                                  _addNewFlow(initialIp: '8.8.8.8'),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(FluentIcons.add, size: 12),
-                                  SizedBox(width: 4),
-                                  Text('New Flow (⌘T)'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Main Content Area
-                      Expanded(
-                        child: _viewMode == ViewMode.tabs
-                            ? TabView(
-                                currentIndex: activeIndex,
-                                onChanged: (index) =>
-                                    setState(() => _currentIndex = index),
-                                onNewPressed: () =>
-                                    _addNewFlow(initialIp: '8.8.8.8'),
-                                onReorder: (oldIndex, newIndex) {
-                                  setState(() {
-                                    if (oldIndex < newIndex) {
-                                      newIndex -= 1;
-                                    }
-                                    final item = _flows.removeAt(oldIndex);
-                                    final flyout = _tabFlyoutControllers
-                                        .removeAt(oldIndex);
-                                    _flows.insert(newIndex, item);
-                                    _tabFlyoutControllers.insert(
-                                      newIndex,
-                                      flyout,
-                                    );
-
-                                    if (_currentIndex == oldIndex) {
-                                      _currentIndex = newIndex;
-                                    } else if (oldIndex < _currentIndex &&
-                                        newIndex >= _currentIndex) {
-                                      _currentIndex -= 1;
-                                    } else if (oldIndex > _currentIndex &&
-                                        newIndex <= _currentIndex) {
-                                      _currentIndex += 1;
-                                    }
-                                  });
-                                },
-                                tabs: List.generate(_flows.length, (index) {
-                                  final flow = _flows[index];
-                                  final tabFlyout =
-                                      index < _tabFlyoutControllers.length
-                                      ? _tabFlyoutControllers[index]
-                                      : FlyoutController();
-
-                                  Widget leadingIcon;
-                                  if (flow.isRunning) {
-                                    leadingIcon = Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: colors.latencyGood,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    );
-                                  } else if (flow.isLoading) {
-                                    leadingIcon = const SizedBox(
-                                      width: 10,
-                                      height: 10,
-                                      child: ProgressRing(strokeWidth: 2),
-                                    );
-                                  } else {
-                                    leadingIcon = const Icon(
-                                      FluentIcons.network_tower,
-                                      size: 14,
-                                    );
-                                  }
-
-                                  return Tab(
-                                    text: FlyoutTarget(
-                                      controller: tabFlyout,
-                                      child: GestureDetector(
-                                        onSecondaryTapDown: (details) {
-                                          tabFlyout.showFlyout(
-                                            barrierColor: Colors.transparent,
-                                            autoModeConfiguration:
-                                                FlyoutAutoConfiguration(
-                                                  preferredMode:
-                                                      FlyoutPlacementMode
-                                                          .bottomCenter,
-                                                ),
-                                            builder: (context) => MenuFlyout(
-                                              items: [
-                                                MenuFlyoutItem(
-                                                  leading: const Icon(
-                                                    FluentIcons.add,
-                                                    size: 14,
-                                                  ),
-                                                  text: const Text(
-                                                    'Duplicate Tab',
-                                                  ),
-                                                  onPressed: () {
-                                                    _addNewFlow(
-                                                      initialIp: flow.ip,
-                                                    );
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                ),
-                                                MenuFlyoutItem(
-                                                  leading: const Icon(
-                                                    FluentIcons.share,
-                                                    size: 14,
-                                                  ),
-                                                  text: const Text(
-                                                    'Export Report',
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(context).pop();
-                                                    showExportDialog(
-                                                      context,
-                                                      flow,
-                                                    );
-                                                  },
-                                                ),
-                                                MenuFlyoutItem(
-                                                  leading: const Icon(
-                                                    FluentIcons.copy,
-                                                    size: 14,
-                                                  ),
-                                                  text: Text(
-                                                    'Copy Target (${flow.ip})',
-                                                  ),
-                                                  onPressed: () {
-                                                    Clipboard.setData(
-                                                      ClipboardData(
-                                                        text: flow.ip,
-                                                      ),
-                                                    );
-                                                    displayInfoBar(
-                                                      context,
-                                                      builder:
-                                                          (
-                                                            context,
-                                                            close,
-                                                          ) => InfoBar(
-                                                            title: const Text(
-                                                              'Copied',
-                                                            ),
-                                                            content: Text(
-                                                              '"${flow.ip}" copied to clipboard.',
-                                                            ),
-                                                            severity:
-                                                                InfoBarSeverity
-                                                                    .success,
-                                                          ),
-                                                    );
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                ),
-                                                if (_flows.length > 1) ...[
-                                                  const MenuFlyoutSeparator(),
-                                                  MenuFlyoutItem(
-                                                    leading: const Icon(
-                                                      FluentIcons.chrome_close,
-                                                      size: 14,
-                                                    ),
-                                                    text: const Text(
-                                                      'Close Tab',
-                                                    ),
-                                                    onPressed: () {
-                                                      Navigator.of(
-                                                        context,
-                                                      ).pop();
-                                                      _closeFlow(index);
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    leading: const Icon(
-                                                      FluentIcons.clear,
-                                                      size: 14,
-                                                    ),
-                                                    text: const Text(
-                                                      'Close Other Tabs',
-                                                    ),
-                                                    onPressed: () {
-                                                      Navigator.of(
-                                                        context,
-                                                      ).pop();
-                                                      _closeOtherFlows(index);
-                                                    },
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                        child: ListenableBuilder(
-                                          listenable: flow.ipController,
-                                          builder: (context, _) {
-                                            return Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  flow.title,
-                                                  style: TextStyle(
-                                                    color: index == activeIndex
-                                                        ? colors.textPrimary
-                                                        : colors.textSecondary,
-                                                    fontWeight:
-                                                        index == activeIndex
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w500,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                                if (index == activeIndex) ...[
-                                                  const SizedBox(width: 6),
-                                                  Container(
-                                                    width: 6,
-                                                    height: 6,
-                                                    decoration: BoxDecoration(
-                                                      color: colors.accent,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    icon: leadingIcon,
-                                    body: _buildDesktopFlowBody(flow, colors),
-                                    onClosed: _flows.length > 1
-                                        ? () => _closeFlow(index)
-                                        : null,
-                                  );
-                                }),
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: _buildSplitView(colors, type),
-                              ),
-                      ),
-                    ],
-                  ),
+                  mainContent,
 
                   // Fade-in scrim behind the Statistics overlay
                   if (_isStatisticsVisible)

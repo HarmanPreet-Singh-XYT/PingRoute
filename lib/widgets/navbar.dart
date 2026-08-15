@@ -318,7 +318,8 @@ class _MobileNavbar extends StatelessWidget {
                 onPressed: () => execTraceroute(),
               ),
             ),
-            if (onReset != null && isResumable)
+            if (onReset != null && isResumable) ...[
+              const SizedBox(width: 2),
               Tooltip(
                 message: 'Reset Session & Telemetry',
                 child: TouchIconButton(
@@ -331,6 +332,8 @@ class _MobileNavbar extends StatelessWidget {
                   onPressed: onReset,
                 ),
               ),
+            ],
+            const SizedBox(width: 4),
             Expanded(
               child: TargetInputWithHistory(
                 key: ValueKey(ipController),
@@ -340,47 +343,6 @@ class _MobileNavbar extends StatelessWidget {
                 onChanged: (text) => setText?.call(text, 'ip'),
                 width: double.infinity,
               ),
-            ),
-            const SizedBox(width: 2),
-            TouchIconButton(
-              icon: Icon(
-                FluentIcons.contact_list,
-                color: colors.textSecondary,
-                size: 18,
-              ),
-              onPressed: () => showTargetDirectoryDialog(
-                context,
-                initialTarget: ipController.text,
-                onSelectTarget: (target) {
-                  ipController.text = target;
-                  setText?.call(target, 'ip');
-                },
-              ),
-            ),
-            TouchIconButton(
-              icon: Icon(
-                FluentIcons.info,
-                color: colors.textSecondary,
-                size: 18,
-              ),
-              onPressed: () => showNetworkInfoDialog(context),
-            ),
-            if (onExport != null)
-              TouchIconButton(
-                icon: Icon(
-                  FluentIcons.share,
-                  color: colors.textSecondary,
-                  size: 18,
-                ),
-                onPressed: onExport,
-              ),
-            TouchIconButton(
-              icon: Icon(
-                FluentIcons.settings,
-                color: colors.textSecondary,
-                size: 18,
-              ),
-              onPressed: () => showSettings(),
             ),
           ],
         ),
@@ -395,9 +357,9 @@ class _MobileNavbar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('Interval', style: type.caption),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 SizedBox(
-                  width: 90,
+                  width: 80,
                   child: TextBox(
                     placeholder: 'ms',
                     textAlign: TextAlign.center,
@@ -405,6 +367,51 @@ class _MobileNavbar extends StatelessWidget {
                     controller: intervalController,
                     onChanged: (text) => setText?.call(text, 'interval'),
                   ),
+                ),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TouchIconButton(
+                  icon: Icon(
+                    FluentIcons.contact_list,
+                    color: colors.textSecondary,
+                    size: 18,
+                  ),
+                  onPressed: () => showTargetDirectoryDialog(
+                    context,
+                    initialTarget: ipController.text,
+                    onSelectTarget: (target) {
+                      ipController.text = target;
+                      setText?.call(target, 'ip');
+                    },
+                  ),
+                ),
+                TouchIconButton(
+                  icon: Icon(
+                    FluentIcons.info,
+                    color: colors.textSecondary,
+                    size: 18,
+                  ),
+                  onPressed: () => showNetworkInfoDialog(context),
+                ),
+                if (onExport != null)
+                  TouchIconButton(
+                    icon: Icon(
+                      FluentIcons.share,
+                      color: colors.textSecondary,
+                      size: 18,
+                    ),
+                    onPressed: onExport,
+                  ),
+                TouchIconButton(
+                  icon: Icon(
+                    FluentIcons.settings,
+                    color: colors.textSecondary,
+                    size: 18,
+                  ),
+                  onPressed: () => showSettings(),
                 ),
               ],
             ),
