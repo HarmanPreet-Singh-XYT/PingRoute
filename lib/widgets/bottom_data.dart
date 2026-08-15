@@ -44,6 +44,25 @@ class _BottomDataState extends State<BottomData> {
   int? _selectedHop;
   int _viewMode = 0; // 0 = Hop Inspector, 1 = Timeframe Timeline, 2 = Incident Log
 
+  // Dedicated controllers for the stat/actions panes below. On iOS a vertical
+  // SingleChildScrollView with no controller defaults to the ambient
+  // PrimaryScrollController, and this widget renders more than one of them
+  // side by side (wide/landscape layout) — sharing that controller across
+  // multiple ScrollViews is what threw "ScrollController is attached to more
+  // than one ScrollPosition" in the 4-flow grid; same root cause here in
+  // landscape on iPad.
+  final ScrollController _statTableController = ScrollController();
+  final ScrollController _actionsController = ScrollController();
+  final ScrollController _statTableCompactController = ScrollController();
+
+  @override
+  void dispose() {
+    _statTableController.dispose();
+    _actionsController.dispose();
+    _statTableCompactController.dispose();
+    super.dispose();
+  }
+
   void setGraphType(String type) {
     setState(() {
       dataType = type;
@@ -222,7 +241,11 @@ class _BottomDataState extends State<BottomData> {
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 4,
-                                child: SingleChildScrollView(child: statTable),
+                                child: SingleChildScrollView(
+                                  primary: false,
+                                  controller: _statTableController,
+                                  child: statTable,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -232,7 +255,11 @@ class _BottomDataState extends State<BottomData> {
                               const SizedBox(width: 12),
                               SizedBox(
                                 width: 120,
-                                child: SingleChildScrollView(child: actions),
+                                child: SingleChildScrollView(
+                                  primary: false,
+                                  controller: _actionsController,
+                                  child: actions,
+                                ),
                               ),
                             ],
                           );
@@ -253,7 +280,11 @@ class _BottomDataState extends State<BottomData> {
                                 children: [
                                   Expanded(
                                     flex: 5,
-                                    child: SingleChildScrollView(child: statTable),
+                                    child: SingleChildScrollView(
+                                      primary: false,
+                                      controller: _statTableCompactController,
+                                      child: statTable,
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(

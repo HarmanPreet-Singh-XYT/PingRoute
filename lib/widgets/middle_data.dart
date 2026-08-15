@@ -719,6 +719,64 @@ class _HeaderCellState extends State<_HeaderCell> {
     super.dispose();
   }
 
+  void _showColumnMenu() {
+    _flyoutController.showFlyout(
+      barrierColor: Colors.transparent,
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomCenter,
+      ),
+      builder: (context) {
+        return MenuFlyout(
+          items: [
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.search, size: 14),
+              text: const Text('Search / Filter Hops...'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onOpenSearch?.call();
+              },
+            ),
+            const MenuFlyoutSeparator(),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.chevron_up, size: 14),
+              text: Text('Sort "${widget.column.label}" Ascending'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSortAscending?.call();
+              },
+            ),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.chevron_down, size: 14),
+              text: Text('Sort "${widget.column.label}" Descending'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSortDescending?.call();
+              },
+            ),
+            if (widget.hasSort)
+              MenuFlyoutItem(
+                leading: const Icon(FluentIcons.refresh, size: 14),
+                text: const Text('Reset Column Sorting'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onResetSort?.call();
+                },
+              ),
+            if (widget.hasFilter)
+              MenuFlyoutItem(
+                leading: const Icon(FluentIcons.clear, size: 14),
+                text: const Text('Clear Search Filter'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onClearFilter?.call();
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sortDirectionTooltip = widget.isSorted
@@ -737,63 +795,8 @@ class _HeaderCellState extends State<_HeaderCell> {
           onExit: (_) => setState(() => _isHovered = false),
           child: GestureDetector(
             onTap: widget.onTap,
-            onSecondaryTapDown: (details) {
-              _flyoutController.showFlyout(
-                barrierColor: Colors.transparent,
-                autoModeConfiguration: FlyoutAutoConfiguration(
-                  preferredMode: FlyoutPlacementMode.bottomCenter,
-                ),
-                builder: (context) {
-                  return MenuFlyout(
-                    items: [
-                      MenuFlyoutItem(
-                        leading: const Icon(FluentIcons.search, size: 14),
-                        text: const Text('Search / Filter Hops...'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onOpenSearch?.call();
-                        },
-                      ),
-                      const MenuFlyoutSeparator(),
-                      MenuFlyoutItem(
-                        leading: const Icon(FluentIcons.chevron_up, size: 14),
-                        text: Text('Sort "${widget.column.label}" Ascending'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onSortAscending?.call();
-                        },
-                      ),
-                      MenuFlyoutItem(
-                        leading: const Icon(FluentIcons.chevron_down, size: 14),
-                        text: Text('Sort "${widget.column.label}" Descending'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onSortDescending?.call();
-                        },
-                      ),
-                      if (widget.hasSort)
-                        MenuFlyoutItem(
-                          leading: const Icon(FluentIcons.refresh, size: 14),
-                          text: const Text('Reset Column Sorting'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            widget.onResetSort?.call();
-                          },
-                        ),
-                      if (widget.hasFilter)
-                        MenuFlyoutItem(
-                          leading: const Icon(FluentIcons.clear, size: 14),
-                          text: const Text('Clear Search Filter'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            widget.onClearFilter?.call();
-                          },
-                        ),
-                    ],
-                  );
-                },
-              );
-            },
+            onSecondaryTapDown: (details) => _showColumnMenu(),
+            onLongPressStart: (details) => _showColumnMenu(),
             child: Container(
               constraints: const BoxConstraints(minWidth: 40),
               height: 38,
@@ -936,6 +939,55 @@ class _DataRowState extends State<_DataRow> {
     }
   }
 
+  void _showHopMenu(String rawIp, dynamic hopNum) {
+    _flyoutController.showFlyout(
+      barrierColor: Colors.transparent,
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomCenter,
+      ),
+      builder: (context) {
+        return MenuFlyout(
+          items: [
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.copy, size: 14),
+              text: Text('Copy IP ($rawIp)'),
+              onPressed: () {
+                _copyIP();
+                Navigator.of(context).pop();
+              },
+            ),
+            if ((widget.hop['name']?.toString() ?? '').isNotEmpty)
+              MenuFlyoutItem(
+                leading: const Icon(FluentIcons.tag, size: 14),
+                text: Text('Copy Domain (${widget.hop['name']})'),
+                onPressed: () {
+                  _copyDomain();
+                  Navigator.of(context).pop();
+                },
+              ),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.favorite_star, size: 14),
+              text: const Text('Bookmark to Directory'),
+              onPressed: () {
+                _bookmarkHop();
+                Navigator.of(context).pop();
+              },
+            ),
+            if (widget.onOpenInNewTab != null)
+              MenuFlyoutItem(
+                leading: const Icon(FluentIcons.open_in_new_tab, size: 14),
+                text: Text('Ping Hop #$hopNum in New Tab'),
+                onPressed: () {
+                  widget.onOpenInNewTab!(rawIp);
+                  Navigator.of(context).pop();
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final rawIp = widget.hop['ip']?.toString() ?? '';
@@ -951,54 +1003,10 @@ class _DataRowState extends State<_DataRow> {
         child: GestureDetector(
           onTap: hasIp ? _copyIP : null,
           onSecondaryTapDown: (details) {
-            if (hasIp) {
-              _flyoutController.showFlyout(
-                barrierColor: Colors.transparent,
-                autoModeConfiguration: FlyoutAutoConfiguration(
-                  preferredMode: FlyoutPlacementMode.bottomCenter,
-                ),
-                builder: (context) {
-                  return MenuFlyout(
-                    items: [
-                      MenuFlyoutItem(
-                        leading: const Icon(FluentIcons.copy, size: 14),
-                        text: Text('Copy IP ($rawIp)'),
-                        onPressed: () {
-                          _copyIP();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      if ((widget.hop['name']?.toString() ?? '').isNotEmpty)
-                        MenuFlyoutItem(
-                          leading: const Icon(FluentIcons.tag, size: 14),
-                          text: Text('Copy Domain (${widget.hop['name']})'),
-                          onPressed: () {
-                            _copyDomain();
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      MenuFlyoutItem(
-                        leading: const Icon(FluentIcons.favorite_star, size: 14),
-                        text: const Text('Bookmark to Directory'),
-                        onPressed: () {
-                          _bookmarkHop();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      if (widget.onOpenInNewTab != null)
-                        MenuFlyoutItem(
-                          leading: const Icon(FluentIcons.open_in_new_tab, size: 14),
-                          text: Text('Ping Hop #$hopNum in New Tab'),
-                          onPressed: () {
-                            widget.onOpenInNewTab!(rawIp);
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                    ],
-                  );
-                },
-              );
-            }
+            if (hasIp) _showHopMenu(rawIp, hopNum);
+          },
+          onLongPressStart: (details) {
+            if (hasIp) _showHopMenu(rawIp, hopNum);
           },
           child: Tooltip(
             message: hasIp ? 'Hop #$hopNum ($rawIp) - Click to copy, right-click for options' : 'Hop #$hopNum (Timed out)',

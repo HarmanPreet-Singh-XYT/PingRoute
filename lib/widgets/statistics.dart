@@ -38,6 +38,19 @@ class Statistics extends StatefulWidget {
 }
 
 class _StatisticsState extends State<Statistics> {
+  // This overlay is stacked on top of the main flow view (not pushed as its
+  // own route), so BottomData's scrollables are still mounted underneath it.
+  // On iOS an uncontrolled SingleChildScrollView defaults to the same ambient
+  // PrimaryScrollController as those siblings — the same collision class as
+  // the 4-flow grid crash.
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -77,6 +90,8 @@ class _StatisticsState extends State<Statistics> {
             ),
             Expanded(
               child: SingleChildScrollView(
+                primary: false,
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: widget.deepStats.asMap().entries.map((entry) {

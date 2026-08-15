@@ -222,6 +222,7 @@ class _GraphState extends State<Graph> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onSecondaryTapDown: _showContextMenu,
+        onLongPressStart: (details) => _showContextMenu(TapDownDetails(globalPosition: details.globalPosition, localPosition: details.localPosition)),
         child: SizedBox.expand(
           child: Padding(
             padding: const EdgeInsets.only(right: 18, left: 8, top: 12, bottom: 6),

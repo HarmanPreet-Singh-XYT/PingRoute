@@ -470,6 +470,18 @@ class _OverviewTab extends StatefulWidget {
 
 class _OverviewTabState extends State<_OverviewTab> {
   String _dataType = 'lt';
+  // Overview/Hops/Graph/Timeline tabs are all kept mounted at once by the
+  // parent IndexedStack, so on iOS this SingleChildScrollView would otherwise
+  // share the ambient PrimaryScrollController with _GraphTab's — the same
+  // "ScrollController attached to more than one ScrollPosition" collision as
+  // the 4-flow grid / BottomData crashes.
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -487,6 +499,8 @@ class _OverviewTabState extends State<_OverviewTab> {
     final worstHop = _worstHop(widget.ipStats);
 
     return SingleChildScrollView(
+      primary: false,
+      controller: _scrollController,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1264,7 +1278,7 @@ class _CompactStatChip extends StatelessWidget {
   }
 }
 
-class _GraphTab extends StatelessWidget {
+class _GraphTab extends StatefulWidget {
   const _GraphTab({
     required this.ipStats,
     required this.deepStats,
@@ -1297,7 +1311,40 @@ class _GraphTab extends StatelessWidget {
   final VoidCallback? onToggleStatistics;
 
   @override
+  State<_GraphTab> createState() => _GraphTabState();
+}
+
+class _GraphTabState extends State<_GraphTab> {
+  // Overview/Hops/Graph/Timeline tabs are all kept mounted at once by the
+  // parent IndexedStack, so on iOS this SingleChildScrollView would otherwise
+  // share the ambient PrimaryScrollController with _OverviewTab's — the same
+  // "ScrollController attached to more than one ScrollPosition" collision as
+  // the 4-flow grid / BottomData crashes.
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ipStats = widget.ipStats;
+    final deepStats = widget.deepStats;
+    final isSuccess = widget.isSuccess;
+    final isLoading = widget.isLoading;
+    final selectedHop = widget.selectedHop;
+    final onSelectHop = widget.onSelectHop;
+    final dataType = widget.dataType;
+    final onSelectDataType = widget.onSelectDataType;
+    final interval = widget.interval;
+    final isRunning = widget.isRunning;
+    final totalPackets = widget.totalPackets;
+    final colors = widget.colors;
+    final type = widget.type;
+    final onToggleStatistics = widget.onToggleStatistics;
+
     if (isLoading) return const Center(child: ProgressRing());
     if (!isSuccess || deepStats.isEmpty) {
       return Center(child: Text('No data available', style: type.subtitle));
@@ -1328,6 +1375,8 @@ class _GraphTab extends StatelessWidget {
         : '-';
 
     return SingleChildScrollView(
+      primary: false,
+      controller: _scrollController,
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
