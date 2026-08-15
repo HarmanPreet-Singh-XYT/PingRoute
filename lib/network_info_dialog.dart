@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart' as p;
+import 'storage_helper.dart';
 import 'theme.dart';
 
 class NetworkInterfaceInfo {
@@ -53,14 +53,21 @@ class NetworkDiagnosticsData {
     buffer.writeln('OS: $osVersion\n');
 
     buffer.writeln('## 🌍 Public Internet');
-    buffer.writeln('- Public IP: ${publicIp.isNotEmpty ? publicIp : "Unknown"}${isFromCache ? " (Cached)" : ""}');
+    buffer.writeln(
+      '- Public IP: ${publicIp.isNotEmpty ? publicIp : "Unknown"}${isFromCache ? " (Cached)" : ""}',
+    );
     if (publicIsp.isNotEmpty) buffer.writeln('- ISP / ASN: $publicIsp');
-    if (publicLocation.isNotEmpty) buffer.writeln('- Location: $publicLocation');
+    if (publicLocation.isNotEmpty)
+      buffer.writeln('- Location: $publicLocation');
     buffer.writeln();
 
     buffer.writeln('## 🚪 Gateway & DNS');
-    buffer.writeln('- Default Gateway: ${defaultGateway.isNotEmpty ? defaultGateway : "Not detected"}');
-    buffer.writeln('- DNS Servers: ${dnsServers.isNotEmpty ? dnsServers.join(", ") : "None detected"}\n');
+    buffer.writeln(
+      '- Default Gateway: ${defaultGateway.isNotEmpty ? defaultGateway : "Not detected"}',
+    );
+    buffer.writeln(
+      '- DNS Servers: ${dnsServers.isNotEmpty ? dnsServers.join(", ") : "None detected"}\n',
+    );
 
     buffer.writeln('## 🔌 Local Network Interfaces');
     for (final iface in interfaces) {
@@ -84,15 +91,7 @@ class NetworkDiagnosticsData {
 class NetworkDiagnosticsService {
   static String _resolveCachePath() {
     try {
-      if (Platform.isWindows) {
-        final appData = Platform.environment['APPDATA'] ??
-            Platform.environment['USERPROFILE'] ??
-            '.';
-        return p.join(appData, 'PingRoute', 'net_cache.json');
-      } else {
-        final home = Platform.environment['HOME'] ?? '.';
-        return p.join(home, '.pingroute', 'net_cache.json');
-      }
+      return StorageHelper.getFilePath('net_cache.json');
     } catch (_) {
       return 'net_cache.json';
     }
@@ -133,7 +132,8 @@ class NetworkDiagnosticsService {
     bool isTest = false,
   }) async {
     final hostname = Platform.localHostname;
-    final osVersion = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+    final osVersion =
+        '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
 
     // 1. Interfaces
     final List<NetworkInterfaceInfo> interfaces = [];
@@ -149,18 +149,22 @@ class NetworkDiagnosticsService {
         for (final addr in iface.addresses) {
           if (addr.type == InternetAddressType.IPv4) {
             ipv4s.add(addr.address);
-            if (firstLocalIpv4.isEmpty && !addr.isLoopback && !addr.isLinkLocal) {
+            if (firstLocalIpv4.isEmpty &&
+                !addr.isLoopback &&
+                !addr.isLinkLocal) {
               firstLocalIpv4 = addr.address;
             }
           } else if (addr.type == InternetAddressType.IPv6) {
             ipv6s.add(addr.address);
           }
         }
-        interfaces.add(NetworkInterfaceInfo(
-          name: iface.name,
-          ipv4Addresses: ipv4s,
-          ipv6Addresses: ipv6s,
-        ));
+        interfaces.add(
+          NetworkInterfaceInfo(
+            name: iface.name,
+            ipv4Addresses: ipv4s,
+            ipv6Addresses: ipv6s,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Failed to list interfaces: $e');
@@ -182,7 +186,9 @@ class NetworkDiagnosticsService {
       } else if (Platform.isWindows) {
         final res = await Process.run('route', ['print', '0.0.0.0']);
         final out = res.stdout.toString();
-        final match = RegExp(r'0\.0\.0\.0\s+0\.0\.0\.0\s+([0-9\.]+)\s+([0-9\.]+)').firstMatch(out);
+        final match = RegExp(
+          r'0\.0\.0\.0\s+0\.0\.0\.0\s+([0-9\.]+)\s+([0-9\.]+)',
+        ).firstMatch(out);
         if (match != null) defaultGateway = match.group(1)!;
       }
     } catch (_) {}
@@ -221,7 +227,9 @@ class NetworkDiagnosticsService {
       final cachedSignature = cached['signature'] as String?;
       final cachedIp = cached['publicIp'] as String?;
       final cachedTimestamp = cached['timestamp'] as int? ?? 0;
-      final cacheAgeHours = (DateTime.now().millisecondsSinceEpoch - cachedTimestamp) / (1000 * 60 * 60);
+      final cacheAgeHours =
+          (DateTime.now().millisecondsSinceEpoch - cachedTimestamp) /
+          (1000 * 60 * 60);
 
       if (cachedSignature == networkSignature &&
           cachedIp != null &&
@@ -239,8 +247,12 @@ class NetworkDiagnosticsService {
       try {
         final client = HttpClient();
         client.connectionTimeout = const Duration(seconds: 3);
-        final request = await client.getUrl(Uri.parse('https://ipinfo.io/json'));
-        final response = await request.close().timeout(const Duration(seconds: 3));
+        final request = await client.getUrl(
+          Uri.parse('https://ipinfo.io/json'),
+        );
+        final response = await request.close().timeout(
+          const Duration(seconds: 3),
+        );
         if (response.statusCode == 200) {
           final body = await response.transform(utf8.decoder).join();
           final json = jsonDecode(body) as Map<String, dynamic>;
@@ -296,7 +308,8 @@ class _NetworkInfoDialogContent extends StatefulWidget {
   const _NetworkInfoDialogContent();
 
   @override
-  State<_NetworkInfoDialogContent> createState() => _NetworkInfoDialogContentState();
+  State<_NetworkInfoDialogContent> createState() =>
+      _NetworkInfoDialogContentState();
 }
 
 class _NetworkInfoDialogContentState extends State<_NetworkInfoDialogContent> {
@@ -311,7 +324,9 @@ class _NetworkInfoDialogContentState extends State<_NetworkInfoDialogContent> {
 
   Future<void> _fetch({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
-    final data = await NetworkDiagnosticsService.scan(forceRefresh: forceRefresh);
+    final data = await NetworkDiagnosticsService.scan(
+      forceRefresh: forceRefresh,
+    );
     if (mounted) {
       setState(() {
         _data = data;
@@ -352,7 +367,11 @@ class _NetworkInfoDialogContentState extends State<_NetworkInfoDialogContent> {
             ],
           ),
           IconButton(
-            icon: Icon(FluentIcons.chrome_close, size: 14, color: colors.textSecondary),
+            icon: Icon(
+              FluentIcons.chrome_close,
+              size: 14,
+              color: colors.textSecondary,
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -364,147 +383,212 @@ class _NetworkInfoDialogContentState extends State<_NetworkInfoDialogContent> {
                 children: [
                   const ProgressRing(),
                   const SizedBox(height: 12),
-                  Text('Scanning network interfaces & routing...', style: type.body),
+                  Text(
+                    'Scanning network interfaces & routing...',
+                    style: type.body,
+                  ),
                 ],
               ),
             )
           : _data == null
-              ? Center(child: Text('Failed to load network info', style: type.body))
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Host & Public IP Section
-                      _SectionHeader(
-                        title: 'Internet & Host Details',
-                        icon: FluentIcons.globe,
-                        trailing: _data!.isFromCache
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: colors.panelBackgroundAlt,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: colors.borderColor),
-                                ),
-                                child: Text('Cached', style: type.caption.copyWith(color: colors.textSecondary, fontSize: 10)),
-                              )
-                            : null,
-                        colors: colors,
-                        type: type,
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.panelBackground,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: colors.borderColor),
-                        ),
-                        child: Column(
-                          children: [
-                            _InfoRow(
-                              label: 'Public IP',
-                              value: _data!.publicIp.isNotEmpty
-                                  ? _data!.publicIp
-                                  : (_data!.publicIpError ?? 'Unavailable'),
-                              isHighlighted: true,
-                              colors: colors,
-                              type: type,
+          ? Center(child: Text('Failed to load network info', style: type.body))
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Host & Public IP Section
+                  _SectionHeader(
+                    title: 'Internet & Host Details',
+                    icon: FluentIcons.globe,
+                    trailing: _data!.isFromCache
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            if (_data!.publicIsp.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              _InfoRow(label: 'ISP / ASN', value: _data!.publicIsp, colors: colors, type: type),
-                            ],
-                            if (_data!.publicLocation.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              _InfoRow(label: 'Location', value: _data!.publicLocation, colors: colors, type: type),
-                            ],
-                            const SizedBox(height: 6),
-                            _InfoRow(label: 'Local Hostname', value: _data!.hostname, colors: colors, type: type),
-                            const SizedBox(height: 6),
-                            _InfoRow(label: 'OS Version', value: _data!.osVersion, colors: colors, type: type),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 2. Gateway & DNS
-                      _SectionHeader(title: 'Routing & DNS', icon: FluentIcons.server, colors: colors, type: type),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.panelBackground,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: colors.borderColor),
-                        ),
-                        child: Column(
-                          children: [
-                            _InfoRow(
-                              label: 'Default Gateway',
-                              value: _data!.defaultGateway.isNotEmpty ? _data!.defaultGateway : 'Not detected',
-                              colors: colors,
-                              type: type,
-                            ),
-                            const SizedBox(height: 6),
-                            _InfoRow(
-                              label: 'DNS Servers',
-                              value: _data!.dnsServers.isNotEmpty ? _data!.dnsServers.join(', ') : 'Default system resolver',
-                              colors: colors,
-                              type: type,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 3. Network Interfaces
-                      _SectionHeader(title: 'Local Network Interfaces (${_data!.interfaces.length})', icon: FluentIcons.network_tower, colors: colors, type: type),
-                      const SizedBox(height: 6),
-                      for (final iface in _data!.interfaces)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: colors.panelBackground,
-                              borderRadius: BorderRadius.circular(8),
+                              color: colors.panelBackgroundAlt,
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: colors.borderColor),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Text(
+                              'Cached',
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                                fontSize: 10,
+                              ),
+                            ),
+                          )
+                        : null,
+                    colors: colors,
+                    type: type,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.panelBackground,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        _InfoRow(
+                          label: 'Public IP',
+                          value: _data!.publicIp.isNotEmpty
+                              ? _data!.publicIp
+                              : (_data!.publicIpError ?? 'Unavailable'),
+                          isHighlighted: true,
+                          colors: colors,
+                          type: type,
+                        ),
+                        if (_data!.publicIsp.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _InfoRow(
+                            label: 'ISP / ASN',
+                            value: _data!.publicIsp,
+                            colors: colors,
+                            type: type,
+                          ),
+                        ],
+                        if (_data!.publicLocation.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _InfoRow(
+                            label: 'Location',
+                            value: _data!.publicLocation,
+                            colors: colors,
+                            type: type,
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        _InfoRow(
+                          label: 'Local Hostname',
+                          value: _data!.hostname,
+                          colors: colors,
+                          type: type,
+                        ),
+                        const SizedBox(height: 6),
+                        _InfoRow(
+                          label: 'OS Version',
+                          value: _data!.osVersion,
+                          colors: colors,
+                          type: type,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. Gateway & DNS
+                  _SectionHeader(
+                    title: 'Routing & DNS',
+                    icon: FluentIcons.server,
+                    colors: colors,
+                    type: type,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.panelBackground,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        _InfoRow(
+                          label: 'Default Gateway',
+                          value: _data!.defaultGateway.isNotEmpty
+                              ? _data!.defaultGateway
+                              : 'Not detected',
+                          colors: colors,
+                          type: type,
+                        ),
+                        const SizedBox(height: 6),
+                        _InfoRow(
+                          label: 'DNS Servers',
+                          value: _data!.dnsServers.isNotEmpty
+                              ? _data!.dnsServers.join(', ')
+                              : 'Default system resolver',
+                          colors: colors,
+                          type: type,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 3. Network Interfaces
+                  _SectionHeader(
+                    title:
+                        'Local Network Interfaces (${_data!.interfaces.length})',
+                    icon: FluentIcons.network_tower,
+                    colors: colors,
+                    type: type,
+                  ),
+                  const SizedBox(height: 6),
+                  for (final iface in _data!.interfaces)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: colors.panelBackground,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colors.borderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      iface.name.startsWith('lo')
-                                          ? FluentIcons.repeat_all
-                                          : (iface.name.startsWith('en') || iface.name.startsWith('eth') || iface.name.startsWith('wlan'))
-                                              ? FluentIcons.wifi
-                                              : FluentIcons.plug_connected,
-                                      size: 14,
-                                      color: colors.accent,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(iface.name, style: type.bodyStrong),
-                                  ],
+                                Icon(
+                                  iface.name.startsWith('lo')
+                                      ? FluentIcons.repeat_all
+                                      : (iface.name.startsWith('en') ||
+                                            iface.name.startsWith('eth') ||
+                                            iface.name.startsWith('wlan'))
+                                      ? FluentIcons.wifi
+                                      : FluentIcons.plug_connected,
+                                  size: 14,
+                                  color: colors.accent,
                                 ),
-                                const SizedBox(height: 6),
-                                if (iface.ipv4Addresses.isNotEmpty)
-                                  _InfoRow(label: 'IPv4', value: iface.ipv4Addresses.join(', '), colors: colors, type: type),
-                                if (iface.ipv6Addresses.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  _InfoRow(label: 'IPv6', value: iface.ipv6Addresses.join(', '), colors: colors, type: type),
-                                ],
-                                if (iface.ipv4Addresses.isEmpty && iface.ipv6Addresses.isEmpty)
-                                  Text('Inactive / No IP assigned', style: type.caption.copyWith(color: colors.textSecondary)),
+                                const SizedBox(width: 6),
+                                Text(iface.name, style: type.bodyStrong),
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 6),
+                            if (iface.ipv4Addresses.isNotEmpty)
+                              _InfoRow(
+                                label: 'IPv4',
+                                value: iface.ipv4Addresses.join(', '),
+                                colors: colors,
+                                type: type,
+                              ),
+                            if (iface.ipv6Addresses.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              _InfoRow(
+                                label: 'IPv6',
+                                value: iface.ipv6Addresses.join(', '),
+                                colors: colors,
+                                type: type,
+                              ),
+                            ],
+                            if (iface.ipv4Addresses.isEmpty &&
+                                iface.ipv6Addresses.isEmpty)
+                              Text(
+                                'Inactive / No IP assigned',
+                                style: type.caption.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
       actions: [
         Button(
           onPressed: _isLoading ? null : () => _fetch(forceRefresh: true),

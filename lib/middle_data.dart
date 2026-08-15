@@ -51,6 +51,44 @@ final List<_Column> _compactColumns = [
   _Column('PL%', 3, (hop, stat) => _isUnresponding(hop, stat) ? '-' : '${stat['pl']}%'),
 ];
 
+int _compareIps(String? ipA, String? ipB) {
+  final cleanA = (ipA ?? '').trim();
+  final cleanB = (ipB ?? '').trim();
+  if ((cleanA.isEmpty || cleanA == '-') && (cleanB.isEmpty || cleanB == '-')) return 0;
+  if (cleanA.isEmpty || cleanA == '-') return 1;
+  if (cleanB.isEmpty || cleanB == '-') return -1;
+
+  final partsA = cleanA.split('.').map((p) => int.tryParse(p)).toList();
+  final partsB = cleanB.split('.').map((p) => int.tryParse(p)).toList();
+  if (partsA.length == 4 && partsB.length == 4 && !partsA.contains(null) && !partsB.contains(null)) {
+    for (int i = 0; i < 4; i++) {
+      final cmp = partsA[i]!.compareTo(partsB[i]!);
+      if (cmp != 0) return cmp;
+    }
+    return 0;
+  }
+  return cleanA.compareTo(cleanB);
+}
+
+num? _extractNum(dynamic val) {
+  if (val == null || val == -1 || val == '-1' || val == '-') return null;
+  if (val is num) return val;
+  if (val is String) {
+    final cleaned = val.replaceAll('ms', '').replaceAll('%', '').trim();
+    return num.tryParse(cleaned);
+  }
+  return null;
+}
+
+int _compareNumeric(dynamic valA, dynamic valB) {
+  final numA = _extractNum(valA);
+  final numB = _extractNum(valB);
+  if (numA == null && numB == null) return 0;
+  if (numA == null) return 1;
+  if (numB == null) return -1;
+  return numA.compareTo(numB);
+}
+
 class LeftData extends StatefulWidget {
   const LeftData({
     super.key,
@@ -79,11 +117,113 @@ class LeftData extends StatefulWidget {
 
 class _LeftDataState extends State<LeftData> {
   String dataType = 'lt';
+  String? _sortColumn;
+  bool _sortAscending = true;
+  String _filterQuery = '';
+  bool _isSearchOpen = false;
+  final TextEditingController _filterController = TextEditingController();
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
 
   void setGraphType(String type) {
     setState(() {
       dataType = type;
     });
+  }
+
+  void _onSort(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        if (_sortAscending) {
+          _sortAscending = false;
+        } else {
+          _sortColumn = null;
+          _sortAscending = true;
+        }
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+    });
+  }
+
+  List<int> _getDisplayIndices() {
+    final total = widget.data?.length ?? 0;
+    if (total == 0) return [];
+
+    List<int> indices = List.generate(total, (i) => i);
+
+    if (_filterQuery.trim().isNotEmpty) {
+      final query = _filterQuery.trim().toLowerCase();
+      indices = indices.where((i) {
+        final hop = widget.data![i];
+        final ip = (hop['ip'] ?? '').toString().toLowerCase();
+        final name = (hop['name'] ?? '').toString().toLowerCase();
+        final hopStr = (hop['hop'] ?? '').toString();
+        return ip.contains(query) || name.contains(query) || hopStr == query;
+      }).toList();
+    }
+
+    if (_sortColumn != null) {
+      indices.sort((iA, iB) {
+        final hopA = widget.data![iA];
+        final statA = iA < widget.IPStats.length ? widget.IPStats[iA] : <String, dynamic>{};
+        final hopB = widget.data![iB];
+        final statB = iB < widget.IPStats.length ? widget.IPStats[iB] : <String, dynamic>{};
+
+        int cmp = 0;
+        switch (_sortColumn) {
+          case 'Hop':
+            final hA = hopA['hop'] is int ? hopA['hop'] as int : int.tryParse('${hopA['hop']}') ?? 0;
+            final hB = hopB['hop'] is int ? hopB['hop'] as int : int.tryParse('${hopB['hop']}') ?? 0;
+            cmp = hA.compareTo(hB);
+            break;
+          case 'IP':
+          case 'IP / Name':
+            cmp = _compareIps(hopA['ip']?.toString(), hopB['ip']?.toString());
+            if (cmp == 0 && _sortColumn == 'IP / Name') {
+              final nA = hopA['name']?.toString() ?? '';
+              final nB = hopB['name']?.toString() ?? '';
+              cmp = nA.toLowerCase().compareTo(nB.toLowerCase());
+            }
+            break;
+          case 'Name':
+            final nA = hopA['name']?.toString() ?? '';
+            final nB = hopB['name']?.toString() ?? '';
+            if (nA.isEmpty && nB.isEmpty) cmp = 0;
+            else if (nA.isEmpty) cmp = 1;
+            else if (nB.isEmpty) cmp = -1;
+            else cmp = nA.toLowerCase().compareTo(nB.toLowerCase());
+            break;
+          case 'Min':
+            cmp = _compareNumeric(statA['min'], statB['min']);
+            break;
+          case 'Max':
+            cmp = _compareNumeric(statA['max'], statB['max']);
+            break;
+          case 'Avg':
+            cmp = _compareNumeric(statA['avg'], statB['avg']);
+            break;
+          case 'Last':
+            cmp = _compareNumeric(statA['last'], statB['last']);
+            break;
+          case 'PL%':
+            final plA = _extractNum(statA['pl']) ?? -1;
+            final plB = _extractNum(statB['pl']) ?? -1;
+            cmp = plA.compareTo(plB);
+            break;
+          default:
+            cmp = iA.compareTo(iB);
+        }
+        return _sortAscending ? cmp : -cmp;
+      });
+    }
+
+    return indices;
   }
 
   Widget _buildTablePanel(
@@ -93,6 +233,8 @@ class _LeftDataState extends State<LeftData> {
     List<_Column> columns,
     double? height,
   ) {
+    final displayIndices = _getDisplayIndices();
+
     return Container(
       clipBehavior: Clip.hardEdge,
       height: height,
@@ -103,28 +245,68 @@ class _LeftDataState extends State<LeftData> {
       ),
       child: Column(
         children: [
-          _HeaderRow(colors: colors, type: type, columns: columns),
+          _HeaderRow(
+            colors: colors,
+            type: type,
+            columns: columns,
+            sortColumn: _sortColumn,
+            sortAscending: _sortAscending,
+            onSort: _onSort,
+            onSortAscending: (col) => setState(() {
+              _sortColumn = col;
+              _sortAscending = true;
+            }),
+            onSortDescending: (col) => setState(() {
+              _sortColumn = col;
+              _sortAscending = false;
+            }),
+            onResetSort: () => setState(() => _sortColumn = null),
+            isSearchOpen: _isSearchOpen,
+            onOpenSearch: () => setState(() => _isSearchOpen = true),
+            onCloseSearch: () {
+              setState(() {
+                _isSearchOpen = false;
+                _filterController.clear();
+                _filterQuery = '';
+              });
+            },
+            filterController: _filterController,
+            onFilterChanged: (text) => setState(() => _filterQuery = text),
+            onClearFilter: () {
+              _filterController.clear();
+              setState(() => _filterQuery = '');
+            },
+            hasFilter: _filterQuery.isNotEmpty,
+          ),
           widget.isLoading
               ? const Expanded(child: Center(child: ProgressRing()))
               : widget.isSuccess
                   ? Expanded(
-                      child: ListView.builder(
-                        itemCount: widget.data?.length ?? 0,
-                        shrinkWrap: height == null,
-                        physics: height == null ? const NeverScrollableScrollPhysics() : null,
-                        itemBuilder: (context, index) {
-                          final hop = widget.data![index];
-                          final stat = widget.IPStats[index];
-                          return _DataRow(
-                            hop: hop,
-                            stat: stat,
-                            colors: colors,
-                            index: index,
-                            columns: columns,
-                            onOpenInNewTab: widget.onOpenInNewTab,
-                          );
-                        },
-                      ),
+                      child: displayIndices.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No hops match "$_filterQuery"',
+                                style: type.caption.copyWith(color: colors.textSecondary),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: displayIndices.length,
+                              shrinkWrap: height == null,
+                              physics: height == null ? const NeverScrollableScrollPhysics() : null,
+                              itemBuilder: (context, index) {
+                                final originalIndex = displayIndices[index];
+                                final hop = widget.data![originalIndex];
+                                final stat = widget.IPStats[originalIndex];
+                                return _DataRow(
+                                  hop: hop,
+                                  stat: stat,
+                                  colors: colors,
+                                  index: index,
+                                  columns: columns,
+                                  onOpenInNewTab: widget.onOpenInNewTab,
+                                );
+                              },
+                            ),
                     )
                   : const Expanded(child: SizedBox()),
         ],
@@ -273,31 +455,294 @@ class _GraphPill extends StatelessWidget {
 }
 
 class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({required this.colors, required this.type, required this.columns});
+  const _HeaderRow({
+    required this.colors,
+    required this.type,
+    required this.columns,
+    this.sortColumn,
+    this.sortAscending = true,
+    this.onSort,
+    this.onSortAscending,
+    this.onSortDescending,
+    this.onResetSort,
+    required this.isSearchOpen,
+    required this.onOpenSearch,
+    required this.onCloseSearch,
+    required this.filterController,
+    required this.onFilterChanged,
+    required this.onClearFilter,
+    required this.hasFilter,
+  });
+
   final AppColors colors;
   final AppTypography type;
   final List<_Column> columns;
+  final String? sortColumn;
+  final bool sortAscending;
+  final void Function(String column)? onSort;
+  final void Function(String column)? onSortAscending;
+  final void Function(String column)? onSortDescending;
+  final VoidCallback? onResetSort;
+  final bool isSearchOpen;
+  final VoidCallback onOpenSearch;
+  final VoidCallback onCloseSearch;
+  final TextEditingController filterController;
+  final ValueChanged<String> onFilterChanged;
+  final VoidCallback onClearFilter;
+  final bool hasFilter;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 38,
       decoration: BoxDecoration(
         color: colors.panelBackgroundAlt,
         border: Border(bottom: BorderSide(color: colors.borderColor)),
       ),
-      child: Row(
-        children: [
-          for (final col in columns)
-            Flexible(
-              flex: col.flex,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 40),
-                height: 40,
-                alignment: Alignment.center,
-                child: Text(col.label, style: type.subtitle, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+      child: isSearchOpen
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  Icon(FluentIcons.search, size: 12, color: colors.accent),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextBox(
+                      autofocus: true,
+                      placeholder: 'Filter hops by IP, hostname, or hop #...',
+                      controller: filterController,
+                      style: type.caption.copyWith(fontSize: 12),
+                      onChanged: onFilterChanged,
+                      suffix: filterController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(FluentIcons.clear, size: 9),
+                              onPressed: onClearFilter,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'Close search',
+                    child: IconButton(
+                      icon: Icon(
+                        FluentIcons.chrome_close,
+                        size: 11,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: onCloseSearch,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Row(
+              children: [
+                for (final col in columns)
+                  Flexible(
+                    flex: col.flex,
+                    child: _HeaderCell(
+                      column: col,
+                      colors: colors,
+                      type: type,
+                      isSorted: sortColumn == col.label,
+                      sortAscending: sortAscending,
+                      onTap: onSort != null ? () => onSort!(col.label) : null,
+                      onSortAscending: onSortAscending != null
+                          ? () => onSortAscending!(col.label)
+                          : null,
+                      onSortDescending: onSortDescending != null
+                          ? () => onSortDescending!(col.label)
+                          : null,
+                      onResetSort: onResetSort,
+                      onOpenSearch: onOpenSearch,
+                      onClearFilter: onClearFilter,
+                      hasFilter: hasFilter,
+                      hasSort: sortColumn != null,
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _HeaderCell extends StatefulWidget {
+  const _HeaderCell({
+    required this.column,
+    required this.colors,
+    required this.type,
+    required this.isSorted,
+    required this.sortAscending,
+    this.onTap,
+    this.onSortAscending,
+    this.onSortDescending,
+    this.onResetSort,
+    this.onOpenSearch,
+    this.onClearFilter,
+    this.hasFilter = false,
+    this.hasSort = false,
+  });
+
+  final _Column column;
+  final AppColors colors;
+  final AppTypography type;
+  final bool isSorted;
+  final bool sortAscending;
+  final VoidCallback? onTap;
+  final VoidCallback? onSortAscending;
+  final VoidCallback? onSortDescending;
+  final VoidCallback? onResetSort;
+  final VoidCallback? onOpenSearch;
+  final VoidCallback? onClearFilter;
+  final bool hasFilter;
+  final bool hasSort;
+
+  @override
+  State<_HeaderCell> createState() => _HeaderCellState();
+}
+
+class _HeaderCellState extends State<_HeaderCell> {
+  final FlyoutController _flyoutController = FlyoutController();
+  bool _isHovered = false;
+
+  @override
+  void dispose() {
+    _flyoutController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortDirectionTooltip = widget.isSorted
+        ? (widget.sortAscending
+            ? ' (Ascending - click for Descending, right-click for options)'
+            : ' (Descending - click to reset, right-click for options)')
+        : ' (Click to sort, right-click for options)';
+
+    return FlyoutTarget(
+      controller: _flyoutController,
+      child: Tooltip(
+        message: 'Sort by ${widget.column.label}$sortDirectionTooltip',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onSecondaryTapDown: (details) {
+              _flyoutController.showFlyout(
+                barrierColor: Colors.transparent,
+                autoModeConfiguration: FlyoutAutoConfiguration(
+                  preferredMode: FlyoutPlacementMode.bottomCenter,
+                ),
+                builder: (context) {
+                  return MenuFlyout(
+                    items: [
+                      MenuFlyoutItem(
+                        leading: const Icon(FluentIcons.search, size: 14),
+                        text: const Text('Search / Filter Hops...'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onOpenSearch?.call();
+                        },
+                      ),
+                      const MenuFlyoutSeparator(),
+                      MenuFlyoutItem(
+                        leading: const Icon(FluentIcons.chevron_up, size: 14),
+                        text: Text('Sort "${widget.column.label}" Ascending'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onSortAscending?.call();
+                        },
+                      ),
+                      MenuFlyoutItem(
+                        leading: const Icon(FluentIcons.chevron_down, size: 14),
+                        text: Text('Sort "${widget.column.label}" Descending'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onSortDescending?.call();
+                        },
+                      ),
+                      if (widget.hasSort)
+                        MenuFlyoutItem(
+                          leading: const Icon(FluentIcons.refresh, size: 14),
+                          text: const Text('Reset Column Sorting'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.onResetSort?.call();
+                          },
+                        ),
+                      if (widget.hasFilter)
+                        MenuFlyoutItem(
+                          leading: const Icon(FluentIcons.clear, size: 14),
+                          text: const Text('Clear Search Filter'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.onClearFilter?.call();
+                          },
+                        ),
+                    ],
+                  );
+                },
+              );
+            },
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 40),
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: widget.isSorted
+                    ? widget.colors.accent.withValues(alpha: 0.12)
+                    : (_isHovered
+                        ? widget.colors.panelBackground
+                        : Colors.transparent),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.column.label,
+                      style: widget.type.subtitle.copyWith(
+                        color: widget.isSorted
+                            ? widget.colors.accent
+                            : (_isHovered
+                                ? widget.colors.textPrimary
+                                : widget.colors.textSecondary),
+                        fontWeight:
+                            widget.isSorted ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (widget.isSorted) ...[
+                    const SizedBox(width: 3),
+                    Icon(
+                      widget.sortAscending
+                          ? FluentIcons.chevron_up
+                          : FluentIcons.chevron_down,
+                      size: 9,
+                      color: widget.colors.accent,
+                    ),
+                  ] else if (_isHovered) ...[
+                    const SizedBox(width: 3),
+                    Icon(
+                      FluentIcons.sort,
+                      size: 9,
+                      color: widget.colors.textSecondary.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

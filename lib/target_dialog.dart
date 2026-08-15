@@ -139,13 +139,23 @@ class _TargetDirectoryDialogContentState
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(FluentIcons.contact_list, size: 22, color: colors.accent),
-                  const SizedBox(width: 10),
-                  Text('IP Directory & Saved Targets', style: type.title),
-                ],
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(FluentIcons.contact_list, size: 20, color: colors.accent),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'IP Directory & Targets',
+                        style: type.title.copyWith(fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               if (!_isAdding && _editingTarget == null)
                 Button(
                   onPressed: _startAdd,
@@ -153,8 +163,8 @@ class _TargetDirectoryDialogContentState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(FluentIcons.add, size: 14),
-                      SizedBox(width: 6),
-                      Text('Add Target'),
+                      SizedBox(width: 4),
+                      Text('Add'),
                     ],
                   ),
                 ),

@@ -21,45 +21,47 @@ Future<List<String>> _runHeavyTaskWithIsolate(String ip) async {
     debugPrint('Isolate Failed: $e');
     debugPrint('Stack Trace: $stackTrace');
     receivePort.close();
+    result = await _networkLib.performTraceroute(ip);
   }
   return result;
 }
 
 void _useIsolate(List<dynamic> args) async {
   SendPort resultPort = args[0];
-  final value = _networkLib.performTraceroute(args[1]);
+  final value = await _networkLib.performTraceroute(args[1]);
   resultPort.send(value);
 }
 
 double calculateCumulativeJitter(List<Map<String, dynamic>> hops, int targetIndex) {
-  if (targetIndex < 1 || targetIndex >= hops.length) {
+  if (targetIndex < 0 || targetIndex >= hops.length) {
     return 0.0;
   }
 
-  List<int> values = [];
-  for (int i = 0; i <= targetIndex; i++) {
-    List<Map<String, dynamic>> pings = hops[i]['pings'];
-    for (var ping in pings) {
-      final int v = ping['value'] as int;
-      if (v != -1) {
-        values.add(v);
+  final dynamic rawPings = hops[targetIndex]['pings'];
+  if (rawPings is! List || rawPings.length < 2) {
+    return 0.0;
+  }
+
+  final validPings = <int>[];
+  for (final ping in rawPings) {
+    if (ping is Map && ping['value'] is num) {
+      final int v = (ping['value'] as num).toInt();
+      if (v >= 0) {
+        validPings.add(v);
       }
     }
   }
 
-  if (values.length < 2) {
+  if (validPings.length < 2) {
     return 0.0;
   }
 
-  List<int> delays = [];
-  for (int i = 1; i < values.length; i++) {
-    delays.add((values[i] - values[i - 1]).abs());
+  int totalDelayVariation = 0;
+  for (int i = 1; i < validPings.length; i++) {
+    totalDelayVariation += (validPings[i] - validPings[i - 1]).abs();
   }
 
-  double jitter = delays.isNotEmpty
-      ? delays.reduce((a, b) => a + b) / delays.length
-      : 0.0;
-
+  final double jitter = totalDelayVariation / (validPings.length - 1);
   return double.parse(jitter.toStringAsFixed(2));
 }
 
@@ -399,6 +401,7 @@ class FlowSession extends ChangeNotifier {
 
   Future<void> runPingsWithDelay() async {
     while (isRunning && ipStats.isNotEmpty && !_isDisposed) {
+      final roundStart = DateTime.now();
       final String time = getCurrentTime();
       if (!isRunning || _isDisposed) break;
 
@@ -487,7 +490,12 @@ class FlowSession extends ChangeNotifier {
       }
 
       notifyListeners();
-      await Future.delayed(Duration(milliseconds: interval));
+
+      final elapsed = DateTime.now().difference(roundStart);
+      final remaining = Duration(milliseconds: interval) - elapsed;
+      if (remaining > Duration.zero) {
+        await Future.delayed(remaining);
+      }
     }
   }
 

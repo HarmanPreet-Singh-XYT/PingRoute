@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
+import 'storage_helper.dart';
 import 'theme.dart';
 import 'target_directory.dart';
 
@@ -55,15 +56,7 @@ class AppSettings extends ChangeNotifier {
 
   static String _resolveStoragePath() {
     try {
-      if (Platform.isWindows) {
-        final appData = Platform.environment['APPDATA'] ??
-            Platform.environment['USERPROFILE'] ??
-            '.';
-        return p.join(appData, 'PingRoute', 'settings.json');
-      } else {
-        final home = Platform.environment['HOME'] ?? '.';
-        return p.join(home, '.pingroute', 'settings.json');
-      }
+      return StorageHelper.getFilePath('settings.json');
     } catch (_) {
       return 'settings.json';
     }
@@ -308,6 +301,18 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                 ),
                 child: Column(
                   children: [
+                    _ContactOptionTile(
+                      icon: FluentIcons.shopping_cart,
+                      title: 'Microsoft Store',
+                      subtitle: 'Rate, review, or install on Windows Store',
+                      colors: colors,
+                      type: type,
+                      onTap: () {
+                        Navigator.of(dialogContext).pop();
+                        _launchUrlString('https://apps.microsoft.com/detail/9mvqgxvmc883?hl=en-US&gl=CA');
+                      },
+                    ),
+                    const Divider(),
                     _ContactOptionTile(
                       icon: FluentIcons.globe,
                       title: 'Visit harmanita.com',
@@ -743,7 +748,15 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     children: [
                       Row(
                         children: [
-                          Icon(FluentIcons.network_tower, size: 24, color: colors.accent),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.asset(
+                              'logo.png',
+                              width: 28,
+                              height: 28,
+                              errorBuilder: (_, __, ___) => Icon(FluentIcons.network_tower, size: 24, color: colors.accent),
+                            ),
+                          ),
                           const SizedBox(width: 10),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -755,33 +768,41 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Expanded(
-                            child: Button(
-                              onPressed: () => _launchUrlString('https://github.com/HarmanPreet-Singh-XYT/PingRoute'),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(FluentIcons.code, size: 14),
-                                  SizedBox(width: 6),
-                                  Text('GitHub Repository'),
-                                ],
-                              ),
+                          Button(
+                            onPressed: () => _launchUrlString('https://apps.microsoft.com/detail/9mvqgxvmc883?hl=en-US&gl=CA'),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(FluentIcons.shopping_cart, size: 14),
+                                SizedBox(width: 6),
+                                Text('Microsoft Store'),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Button(
-                              onPressed: _showContactOptions,
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(FluentIcons.mail, size: 14),
-                                  SizedBox(width: 6),
-                                  Text('Contact & Feedback'),
-                                ],
-                              ),
+                          Button(
+                            onPressed: () => _launchUrlString('https://github.com/HarmanPreet-Singh-XYT/PingRoute'),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(FluentIcons.code, size: 14),
+                                SizedBox(width: 6),
+                                Text('GitHub'),
+                              ],
+                            ),
+                          ),
+                          Button(
+                            onPressed: _showContactOptions,
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(FluentIcons.mail, size: 14),
+                                SizedBox(width: 6),
+                                Text('Contact & Feedback'),
+                              ],
                             ),
                           ),
                         ],

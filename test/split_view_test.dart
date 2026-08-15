@@ -3,7 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:PingRoute/main.dart';
 
 void main() {
-  testWidgets('MainApp renders ViewMode switcher and toggles to 2-Flow Split', (WidgetTester tester) async {
+  testWidgets('MainApp renders ViewMode switcher and toggles modes without auto-creating tabs', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -16,11 +16,68 @@ void main() {
     expect(find.text('2-Flow Split'), findsOneWidget);
     expect(find.text('4-Flow Grid'), findsOneWidget);
 
+    // Initial flow is 1
     // Tap 2-Flow Split
     await tester.tap(find.text('2-Flow Split'));
     await tester.pumpAndSettle();
 
-    // Verify 2-Flow Split view is rendered
+    // Verify 2-Flow Split view is rendered without auto-creating tabs
     expect(find.byType(TabView), findsNothing);
+    expect(find.text('Slot 2 (Unassigned)'), findsOneWidget);
+
+    // Switch to 4-Flow Grid
+    await tester.tap(find.text('4-Flow Grid'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Slot 2 (Unassigned)'), findsOneWidget);
+    expect(find.text('Slot 3 (Unassigned)'), findsOneWidget);
+    expect(find.text('Slot 4 (Unassigned)'), findsOneWidget);
+
+    // Switch back to Tabs mode
+    await tester.tap(find.text('Tabs'));
+    await tester.pumpAndSettle();
+
+    // Only original single tab exists
+    expect(find.byType(TabView), findsOneWidget);
+    expect(find.byType(Tab), findsNWidgets(1));
+  });
+
+  testWidgets('Split view allows picking any arbitrary tab from 6+ open tabs', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const PingRouteApp());
+    await tester.pumpAndSettle();
+
+    // Create 5 more tabs so we have 6 tabs total
+    for (int i = 0; i < 5; i++) {
+      await tester.tap(find.text('New Flow (⌘T)'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byType(Tab), findsNWidgets(6));
+
+    // Switch to 2-Flow Split
+    await tester.tap(find.text('2-Flow Split'));
+    await tester.pumpAndSettle();
+
+    // Slot 1 and Slot 2 dropdown selectors exist
+    expect(find.textContaining('Slot 1:'), findsOneWidget);
+    expect(find.textContaining('Slot 2:'), findsOneWidget);
+
+    // Tap on Slot 1 DropDownButton to choose Tab 6
+    await tester.tap(find.textContaining('Slot 1:'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Tab 6:'), findsOneWidget);
+    await tester.tap(find.textContaining('Tab 6:'));
+    await tester.pumpAndSettle();
+
+    // Verify Slot 1 now displays Tab 6
+    expect(find.textContaining('Slot 1: Tab 6'), findsOneWidget);
   });
 }
+
+
+

@@ -40,9 +40,11 @@ dependencies:
   intl: ^0.20.2
   fl_chart: ^0.69.0
   path: ^1.9.0
+  path_provider: ^2.1.5
   fluent_ui: 4.13.0
   system_theme: ^3.1.2
   url_launcher: ^6.3.2
+  dart_ping_ios: ^4.0.2
 
 dev_dependencies:
   flutter_test:
@@ -67,10 +69,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

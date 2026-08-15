@@ -4,6 +4,7 @@ import 'breakpoints.dart';
 import 'target_directory.dart';
 import 'target_dialog.dart';
 import 'network_info_dialog.dart';
+import 'shared_widgets.dart';
 
 class Navbar extends StatelessWidget {
   const Navbar({
@@ -121,8 +122,8 @@ class _WideNavbar extends StatelessWidget {
       message: isRunning
           ? 'Pause Probing (⌘R)'
           : isResumable
-              ? 'Resume Probing (⌘R)'
-              : 'Start Traceroute (⌘R / Enter)',
+          ? 'Resume Probing (⌘R)'
+          : 'Start Traceroute (⌘R / Enter)',
       child: IconButton(
         icon: Icon(
           isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
@@ -133,16 +134,16 @@ class _WideNavbar extends StatelessWidget {
       ),
     );
 
-    final resetButton = onReset != null
+    final resetButton = (onReset != null && isResumable)
         ? Tooltip(
             message: 'Reset Session & Clear Telemetry',
             child: IconButton(
               icon: Icon(
                 FluentIcons.refresh,
-                color: hasData ? colors.textSecondary : colors.textSecondary.withValues(alpha: 0.35),
+                color: colors.textSecondary,
                 size: 20,
               ),
-              onPressed: hasData ? onReset : null,
+              onPressed: onReset,
             ),
           )
         : null;
@@ -182,7 +183,11 @@ class _WideNavbar extends StatelessWidget {
     final directoryButton = Tooltip(
       message: 'IP Directory & Saved Targets (⌘D)',
       child: IconButton(
-        icon: Icon(FluentIcons.contact_list, color: colors.textSecondary, size: 22),
+        icon: Icon(
+          FluentIcons.contact_list,
+          color: colors.textSecondary,
+          size: 22,
+        ),
         onPressed: () => showTargetDirectoryDialog(
           context,
           initialTarget: ipController.text,
@@ -206,7 +211,11 @@ class _WideNavbar extends StatelessWidget {
         ? Tooltip(
             message: 'Export & Share Report (MTR / CSV / JSON)',
             child: IconButton(
-              icon: Icon(FluentIcons.share, color: colors.textSecondary, size: 20),
+              icon: Icon(
+                FluentIcons.share,
+                color: colors.textSecondary,
+                size: 20,
+              ),
               onPressed: onExport,
             ),
           )
@@ -295,27 +304,31 @@ class _MobileNavbar extends StatelessWidget {
               message: isRunning
                   ? 'Pause Probing'
                   : isResumable
-                      ? 'Resume Probing'
-                      : 'Start Traceroute',
-              child: IconButton(
+                  ? 'Resume Probing'
+                  : 'Start Traceroute',
+              child: TouchIconButton(
                 icon: Icon(
-                  isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
+                  isRunning
+                      ? FluentIcons.circle_pause_solid
+                      : FluentIcons.play_solid,
                   color: isRunning ? colors.latencyWarn : colors.latencyGood,
                   size: 34,
                 ),
+                iconSize: 34,
                 onPressed: () => execTraceroute(),
               ),
             ),
-            if (onReset != null)
+            if (onReset != null && isResumable)
               Tooltip(
                 message: 'Reset Session & Telemetry',
-                child: IconButton(
+                child: TouchIconButton(
                   icon: Icon(
                     FluentIcons.refresh,
-                    color: hasData ? colors.textSecondary : colors.textSecondary.withValues(alpha: 0.35),
+                    color: colors.textSecondary,
                     size: 16,
                   ),
-                  onPressed: hasData ? onReset : null,
+                  iconSize: 16,
+                  onPressed: onReset,
                 ),
               ),
             Expanded(
@@ -329,8 +342,12 @@ class _MobileNavbar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            IconButton(
-              icon: Icon(FluentIcons.contact_list, color: colors.textSecondary, size: 18),
+            TouchIconButton(
+              icon: Icon(
+                FluentIcons.contact_list,
+                color: colors.textSecondary,
+                size: 18,
+              ),
               onPressed: () => showTargetDirectoryDialog(
                 context,
                 initialTarget: ipController.text,
@@ -340,17 +357,29 @@ class _MobileNavbar extends StatelessWidget {
                 },
               ),
             ),
-            IconButton(
-              icon: Icon(FluentIcons.info, color: colors.textSecondary, size: 18),
+            TouchIconButton(
+              icon: Icon(
+                FluentIcons.info,
+                color: colors.textSecondary,
+                size: 18,
+              ),
               onPressed: () => showNetworkInfoDialog(context),
             ),
             if (onExport != null)
-              IconButton(
-                icon: Icon(FluentIcons.share, color: colors.textSecondary, size: 18),
+              TouchIconButton(
+                icon: Icon(
+                  FluentIcons.share,
+                  color: colors.textSecondary,
+                  size: 18,
+                ),
                 onPressed: onExport,
               ),
-            IconButton(
-              icon: Icon(FluentIcons.settings, color: colors.textSecondary, size: 18),
+            TouchIconButton(
+              icon: Icon(
+                FluentIcons.settings,
+                color: colors.textSecondary,
+                size: 18,
+              ),
               onPressed: () => showSettings(),
             ),
           ],
@@ -428,7 +457,9 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
         return SizedBox(
           width: widget.width == double.infinity ? null : widget.width,
           child: Row(
-            mainAxisSize: widget.width == double.infinity ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: widget.width == double.infinity
+                ? MainAxisSize.max
+                : MainAxisSize.min,
             children: [
               Expanded(
                 child: FlyoutTarget(
@@ -444,7 +475,8 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
                         label: ip,
                         child: saved != null
                             ? Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(ip),
                                   const SizedBox(width: 8),
@@ -474,15 +506,23 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
               const SizedBox(width: 4),
               // Star bookmark button
               Tooltip(
-                message: isSaved ? 'Bookmarked in Directory' : 'Bookmark Target',
-                child: IconButton(
+                message: isSaved
+                    ? 'Bookmarked in Directory'
+                    : 'Bookmark Target',
+                child: TouchIconButton(
                   icon: Icon(
-                    isSaved ? FluentIcons.favorite_star_fill : FluentIcons.favorite_star,
-                    color: isSaved ? Colors.warningPrimaryColor : widget.colors.textSecondary,
+                    isSaved
+                        ? FluentIcons.favorite_star_fill
+                        : FluentIcons.favorite_star,
+                    color: isSaved
+                        ? Colors.warningPrimaryColor
+                        : widget.colors.textSecondary,
                     size: 16,
                   ),
                   onPressed: () {
-                    TargetDirectory.instance.toggleFavorite(widget.controller.text);
+                    TargetDirectory.instance.toggleFavorite(
+                      widget.controller.text,
+                    );
                   },
                 ),
               ),
@@ -495,7 +535,11 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
 }
 
 class _LabeledField extends StatelessWidget {
-  const _LabeledField({required this.label, required this.typography, required this.child});
+  const _LabeledField({
+    required this.label,
+    required this.typography,
+    required this.child,
+  });
   final String label;
   final AppTypography typography;
   final Widget child;
@@ -515,7 +559,11 @@ class _LabeledField extends StatelessWidget {
 }
 
 class _LatencyLegend extends StatelessWidget {
-  const _LatencyLegend({required this.colors, required this.type, this.compact = false});
+  const _LatencyLegend({
+    required this.colors,
+    required this.type,
+    this.compact = false,
+  });
   final AppColors colors;
   final AppTypography type;
   final bool compact;
@@ -527,9 +575,24 @@ class _LatencyLegend extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _LegendChip(label: compact ? '0-100' : '0-100ms', color: colors.latencyGood, textStyle: type.caption, compact: compact),
-          _LegendChip(label: compact ? '100-200' : '100-200ms', color: colors.latencyWarn, textStyle: type.caption, compact: compact),
-          _LegendChip(label: compact ? '200+' : '200ms+', color: colors.latencyBad, textStyle: type.caption, compact: compact),
+          _LegendChip(
+            label: compact ? '0-100' : '0-100ms',
+            color: colors.latencyGood,
+            textStyle: type.caption,
+            compact: compact,
+          ),
+          _LegendChip(
+            label: compact ? '100-200' : '100-200ms',
+            color: colors.latencyWarn,
+            textStyle: type.caption,
+            compact: compact,
+          ),
+          _LegendChip(
+            label: compact ? '200+' : '200ms+',
+            color: colors.latencyBad,
+            textStyle: type.caption,
+            compact: compact,
+          ),
         ],
       ),
     );
@@ -537,7 +600,12 @@ class _LatencyLegend extends StatelessWidget {
 }
 
 class _LegendChip extends StatelessWidget {
-  const _LegendChip({required this.label, required this.color, required this.textStyle, this.compact = false});
+  const _LegendChip({
+    required this.label,
+    required this.color,
+    required this.textStyle,
+    this.compact = false,
+  });
   final String label;
   final Color color;
   final TextStyle textStyle;
@@ -552,7 +620,11 @@ class _LegendChip extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         label,
-        style: textStyle.copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: compact ? 10 : null),
+        style: textStyle.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: compact ? 10 : null,
+        ),
       ),
     );
   }

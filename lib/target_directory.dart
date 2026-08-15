@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'storage_helper.dart';
 
 class SavedTarget {
   final String id;
@@ -80,15 +81,7 @@ class TargetDirectory extends ChangeNotifier {
 
   static String _resolveStoragePath() {
     try {
-      if (Platform.isWindows) {
-        final appData = Platform.environment['APPDATA'] ??
-            Platform.environment['USERPROFILE'] ??
-            '.';
-        return p.join(appData, 'PingRoute', 'targets.json');
-      } else {
-        final home = Platform.environment['HOME'] ?? '.';
-        return p.join(home, '.pingroute', 'targets.json');
-      }
+      return StorageHelper.getFilePath('targets.json');
     } catch (_) {
       return 'targets.json';
     }

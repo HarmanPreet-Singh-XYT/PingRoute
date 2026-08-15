@@ -36,23 +36,38 @@ void main() {
       session.dispose();
     });
 
-    test('calculateCumulativeJitter calculates properly', () {
+    test('calculateCumulativeJitter calculates true per-hop packet delay variation', () {
       final hops = [
         {
           'pings': [
-            {'value': 10},
+            {'value': 2},
+            {'value': 4},
+            {'value': 3},
+            {'value': 5},
           ]
         },
         {
           'pings': [
-            {'value': 20},
-            {'value': 30},
+            {'value': 10},
+            {'value': -1}, // timeout should be ignored in delay variation
+            {'value': 14},
+            {'value': 12},
           ]
         }
       ];
-      final jitter = calculateCumulativeJitter(hops, 1);
-      // values: [10, 20, 30], delays: |20-10| = 10, |30-20| = 10 -> avg = 10.0
-      expect(jitter, 10.0);
+
+      // Hop 0: |4-2| + |3-4| + |5-3| = 2 + 1 + 2 = 5 / 3 = 1.67
+      final jitter0 = calculateCumulativeJitter(hops, 0);
+      expect(jitter0, 1.67);
+
+      // Hop 1: valid pings [10, 14, 12]: |14-10| + |12-14| = 4 + 2 = 6 / 2 = 3.0
+      final jitter1 = calculateCumulativeJitter(hops, 1);
+      expect(jitter1, 3.0);
+
+      // Out of bounds or insufficient pings return 0.0
+      expect(calculateCumulativeJitter(hops, -1), 0.0);
+      expect(calculateCumulativeJitter(hops, 99), 0.0);
+      expect(calculateCumulativeJitter([{'pings': [{'value': 10}]}], 0), 0.0);
     });
 
     test('reset clears all telemetry and session state', () {
