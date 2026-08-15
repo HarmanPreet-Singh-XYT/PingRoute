@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:PingRoute/network.dart';
+import 'package:PingRoute/services/network.dart';
 
 void main() {
   group('NetworkLib Unit Tests', () {

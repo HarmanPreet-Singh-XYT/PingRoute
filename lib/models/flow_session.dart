@@ -5,7 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:validators/validators.dart';
 import 'package:dart_ping/dart_ping.dart';
-import 'network.dart';
+import '../services/network.dart';
 import 'parse_result.dart';
 import 'target_directory.dart';
 

@@ -1,6 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:PingRoute/graph.dart';
-import 'theme.dart';
+import '../core/theme.dart';
+import 'graph.dart';
 import 'shared_widgets.dart';
 
 class BottomData extends StatefulWidget {
@@ -85,6 +85,7 @@ class _BottomDataState extends State<BottomData> {
     );
 
     final hopSelectorVertical = ListView.builder(
+      primary: false,
       itemCount: widget.deepStats.length,
       itemBuilder: (context, i) {
         final hopNum = widget.deepStats[i]['hop'] as int;

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:PingRoute/network_info_dialog.dart';
+import 'package:PingRoute/dialogs/network_info_dialog.dart';
 
 void main() {
   group('Network Diagnostics Unit Tests', () {

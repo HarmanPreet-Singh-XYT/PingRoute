@@ -1,7 +1,7 @@
-import 'package:PingRoute/graph.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'theme.dart';
-import 'breakpoints.dart';
+import '../core/breakpoints.dart';
+import '../core/theme.dart';
+import 'graph.dart';
 import 'shared_widgets.dart';
 
 class Statistics extends StatefulWidget {

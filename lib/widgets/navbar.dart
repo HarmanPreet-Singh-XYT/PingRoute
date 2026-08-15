@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'theme.dart';
-import 'breakpoints.dart';
-import 'target_directory.dart';
-import 'target_dialog.dart';
-import 'network_info_dialog.dart';
+import '../core/breakpoints.dart';
+import '../core/theme.dart';
+import '../dialogs/network_info_dialog.dart';
+import '../dialogs/target_dialog.dart';
+import '../models/target_directory.dart';
 import 'shared_widgets.dart';
 
 class Navbar extends StatelessWidget {

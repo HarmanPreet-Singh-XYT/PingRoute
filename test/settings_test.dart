@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:PingRoute/settings.dart';
+import 'package:PingRoute/dialogs/settings.dart';
 
 void main() {
   group('AppSettings Unit Tests', () {

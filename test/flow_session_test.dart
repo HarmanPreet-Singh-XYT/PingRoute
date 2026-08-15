@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:PingRoute/flow_session.dart';
+import 'package:PingRoute/models/flow_session.dart';
 import 'package:PingRoute/main.dart';
 
 void main() {

@@ -1,7 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'theme.dart';
-import 'flow_session.dart';
+import '../core/theme.dart';
+import '../models/flow_session.dart';
 
 void showExportDialog(BuildContext context, FlowSession flow) {
   showDialog(

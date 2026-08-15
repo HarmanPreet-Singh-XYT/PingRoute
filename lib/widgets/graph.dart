@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/widgets.dart';
 import 'dart:async';
-import 'theme.dart';
+import '../core/theme.dart';
 
 enum _MetricKey { packetLoss, latency, avgLatency, jitter }
 

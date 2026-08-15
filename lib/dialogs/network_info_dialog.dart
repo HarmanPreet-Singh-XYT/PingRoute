@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'storage_helper.dart';
-import 'theme.dart';
+import '../core/storage_helper.dart';
+import '../core/theme.dart';
 
 class NetworkInterfaceInfo {
   final String name;

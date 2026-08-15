@@ -1,6 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'target_directory.dart';
-import 'theme.dart';
+import '../core/theme.dart';
+import '../models/target_directory.dart';
 
 void showTargetDirectoryDialog(
   BuildContext context, {
@@ -277,6 +277,7 @@ class _TargetDirectoryDialogContentState
                         ),
                       )
                     : ListView.separated(
+                        primary: false,
                         itemCount: targets.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {

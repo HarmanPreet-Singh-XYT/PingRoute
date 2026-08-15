@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:PingRoute/target_directory.dart';
+import 'package:PingRoute/models/target_directory.dart';
 
 void main() {
   group('TargetDirectory Unit Tests', () {

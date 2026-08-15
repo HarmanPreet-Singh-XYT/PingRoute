@@ -1,6 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'theme.dart';
+import '../core/theme.dart';
 
 /// [IconButton] padded to at least a 44x44 hit area regardless of icon size,
 /// meeting the Apple/Material minimum touch target. Fluent's default icon

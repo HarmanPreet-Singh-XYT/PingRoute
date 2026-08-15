@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:PingRoute/graph.dart';
-import 'theme.dart';
+import '../core/theme.dart';
+import '../models/target_directory.dart';
+import 'graph.dart';
 import 'shared_widgets.dart';
-import 'target_directory.dart';
 
 class _Column {
   final String label;
@@ -122,10 +122,12 @@ class _LeftDataState extends State<LeftData> {
   String _filterQuery = '';
   bool _isSearchOpen = false;
   final TextEditingController _filterController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _filterController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -290,6 +292,8 @@ class _LeftDataState extends State<LeftData> {
                               ),
                             )
                           : ListView.builder(
+                              controller: height == null ? null : _scrollController,
+                              primary: false,
                               itemCount: displayIndices.length,
                               shrinkWrap: height == null,
                               physics: height == null ? const NeverScrollableScrollPhysics() : null,

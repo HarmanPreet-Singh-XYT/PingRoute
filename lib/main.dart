@@ -1,22 +1,23 @@
-import 'package:PingRoute/statistics.dart';
-import 'package:PingRoute/graph.dart';
+import 'package:dart_ping_ios/dart_ping_ios.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:system_theme/system_theme.dart';
-import 'package:PingRoute/bottom_data.dart';
-import 'navbar.dart';
-import 'middle_data.dart';
-import 'settings.dart';
-import 'error.dart';
-import 'theme.dart';
-import 'breakpoints.dart';
-import 'mobile_shell.dart';
-import 'flow_session.dart';
-import 'target_dialog.dart';
-import 'export_dialog.dart';
-import 'network_info_dialog.dart';
-import 'package:dart_ping_ios/dart_ping_ios.dart';
-import 'package:PingRoute/storage_helper.dart';
+
+import 'core/breakpoints.dart';
+import 'core/storage_helper.dart';
+import 'core/theme.dart';
+import 'dialogs/export_dialog.dart';
+import 'dialogs/network_info_dialog.dart';
+import 'dialogs/settings.dart';
+import 'dialogs/target_dialog.dart';
+import 'models/flow_session.dart';
+import 'widgets/bottom_data.dart';
+import 'widgets/error.dart';
+import 'widgets/graph.dart';
+import 'widgets/middle_data.dart';
+import 'widgets/mobile_shell.dart';
+import 'widgets/navbar.dart';
+import 'widgets/statistics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

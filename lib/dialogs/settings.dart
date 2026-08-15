@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
-import 'storage_helper.dart';
-import 'theme.dart';
-import 'target_directory.dart';
+import '../core/storage_helper.dart';
+import '../core/theme.dart';
+import '../models/target_directory.dart';
 
 class AppSettings extends ChangeNotifier {
   static final AppSettings instance = AppSettings._internal();

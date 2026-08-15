@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:PingRoute/graph.dart';
-import 'theme.dart';
-import 'shared_widgets.dart';
+import '../core/theme.dart';
+import '../models/flow_session.dart';
+import 'graph.dart';
 import 'navbar.dart';
-import 'flow_session.dart';
+import 'shared_widgets.dart';
 
 /// Tabbed presentation for narrow (phone) screens: splits data into
 /// Overview / Hops / Graph with a bottom navigation bar, and supports
@@ -101,6 +101,7 @@ class _MobileShellState extends State<MobileShell> {
               children: [
                 Expanded(
                   child: ListView.separated(
+                    primary: false,
                     scrollDirection: Axis.horizontal,
                     itemCount: widget.flows.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 4),
@@ -589,6 +590,7 @@ class _HopsTab extends StatelessWidget {
       return Center(child: Text('No hops yet', style: type.subtitle));
     }
     return ListView.separated(
+      primary: false,
       padding: const EdgeInsets.all(12),
       itemCount: data!.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -730,6 +732,7 @@ class _GraphTab extends StatelessWidget {
           SizedBox(
             height: 44,
             child: ListView.separated(
+              primary: false,
               scrollDirection: Axis.horizontal,
               itemCount: deepStats.length,
               separatorBuilder: (_, __) => const SizedBox(width: 6),

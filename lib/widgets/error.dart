@@ -1,5 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'theme.dart';
+import '../core/theme.dart';
 
 void showErrorPopup(BuildContext context) {
   showDialog(

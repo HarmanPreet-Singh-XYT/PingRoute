@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:PingRoute/flow_session.dart';
+import 'package:PingRoute/models/flow_session.dart';
 
 void main() {
   group('Export & Telemetry Reports Tests', () {
