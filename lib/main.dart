@@ -216,40 +216,154 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  void _openFlowSettings(FlowSession flow) {
+    showSettingsPopup(
+      context,
+      flow.graphInterval,
+      flow.packetsLimit,
+      flow.changeSettingParams,
+      packetSize: flow.packetSize,
+      maxHops: flow.maxHops,
+      timeoutMs: flow.timeoutMs,
+      showMetricCards: flow.showMetricCards,
+      showControls: flow.showControls,
+      showGraphPills: flow.showGraphPills,
+      activeMetric: flow.activeMetric,
+      onToggleMetricCards: (val) => flow.toggleMetricCards(val),
+      onToggleControls: (val) => flow.toggleControls(val),
+      onToggleGraphPills: (val) => flow.toggleGraphPills(val),
+      onSelectMetric: (metric) => flow.setActiveMetric(metric),
+      onApplyToAllTabs: () {
+        for (final other in _flows) {
+          other.copySettingsFrom(flow);
+        }
+        displayInfoBar(
+          context,
+          builder: (context, close) => const InfoBar(
+            title: Text('Settings Applied'),
+            content: Text('Layout and telemetry settings synced across all open tabs.'),
+            severity: InfoBarSeverity.success,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniControlsBar(
+    FlowSession flow,
+    AppColors colors,
+    AppTypography type,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.panelBackgroundAlt,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: flow.isRunning
+                  ? colors.latencyGood
+                  : (flow.dataCollected || flow.ipStats.isNotEmpty
+                      ? colors.latencyWarn
+                      : colors.textSecondary.withValues(alpha: 0.5)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            flow.ip,
+            style: type.bodyStrong.copyWith(color: colors.textPrimary),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: colors.panelBackground,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: colors.borderColor),
+            ),
+            child: Text(
+              '${flow.interval}ms',
+              style: type.caption.copyWith(color: colors.textSecondary, fontSize: 11),
+            ),
+          ),
+          const Spacer(),
+          Tooltip(
+            message: flow.isRunning ? 'Pause Flow' : 'Resume Flow',
+            child: IconButton(
+              icon: Icon(
+                flow.isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
+                size: 14,
+                color: flow.isRunning ? colors.latencyWarn : colors.latencyGood,
+              ),
+              onPressed: () => flow.execTraceroute(
+                onError: () => showErrorPopup(context),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: 'Show Target & Controls Bar',
+            child: Button(
+              onPressed: () => flow.toggleControls(true),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(FluentIcons.chevron_down, size: 10, color: colors.accent),
+                  const SizedBox(width: 4),
+                  Text('Controls', style: type.caption.copyWith(color: colors.accent)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: 'Settings',
+            child: IconButton(
+              icon: Icon(FluentIcons.settings, size: 14, color: colors.textSecondary),
+              onPressed: () => _openFlowSettings(flow),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDesktopFlowBody(FlowSession flow, AppColors colors) {
+    final type = appTypography(context);
     return Container(
       key: ValueKey(flow.id),
       color: colors.pageBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 900;
-          if (isWide) {
-            return Column(
+      child: Column(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Column(
               children: [
-                Navbar(
-                  key: ValueKey('navbar_${flow.id}'),
-                  ipController: flow.ipController,
-                  intervalController: flow.intervalController,
-                  execTraceroute: () => flow.execTraceroute(
-                    onError: () => showErrorPopup(context),
-                  ),
-                  onReset: () => flow.reset(),
-                  hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
-                  isRunning: flow.isRunning,
-                  showSettings: () => showSettingsPopup(
-                    context,
-                    flow.graphInterval,
-                    flow.packetsLimit,
-                    flow.changeSettingParams,
-                    packetSize: flow.packetSize,
-                    maxHops: flow.maxHops,
-                    timeoutMs: flow.timeoutMs,
-                  ),
-                  onExport: () => showExportDialog(context, flow),
-                  setText: flow.setText,
-                ),
-                const SizedBox(height: 16),
+                flow.showControls
+                    ? Navbar(
+                        key: ValueKey('navbar_${flow.id}'),
+                        ipController: flow.ipController,
+                        intervalController: flow.intervalController,
+                        execTraceroute: () => flow.execTraceroute(
+                          onError: () => showErrorPopup(context),
+                        ),
+                        onReset: () => flow.reset(),
+                        hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
+                        isRunning: flow.isRunning,
+                        showSettings: () => _openFlowSettings(flow),
+                        onExport: () => showExportDialog(context, flow),
+                        setText: flow.setText,
+                      )
+                    : _buildMiniControlsBar(flow, colors, type),
+                SizedBox(height: flow.showControls ? 16 : 8),
                 Expanded(
                   child: LeftData(
                     data: flow.tracerouteResult,
@@ -259,90 +373,52 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                     interval: flow.graphInterval,
                     isRunning: flow.isRunning,
                     isSuccess: flow.success,
+                    showMetricCards: flow.showMetricCards,
+                    showGraphPills: flow.showGraphPills,
+                    showControls: flow.showControls,
+                    initialMetric: flow.activeMetric,
+                    onMetricChanged: flow.setActiveMetric,
+                    onToggleMetricCards: flow.toggleMetricCards,
+                    onToggleGraphPills: flow.toggleGraphPills,
+                    onToggleControls: flow.toggleControls,
+                    onReset: flow.reset,
                     onOpenInNewTab: (ip) =>
                         _addNewFlow(initialIp: ip, autoStart: true),
                     onToggleStatistics: _toggleStatisticsVisibility,
                   ),
                 ),
               ],
-            );
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                flex: 5,
-                child: Column(
-                  children: [
-                    Navbar(
-                      key: ValueKey('navbar_${flow.id}'),
-                      ipController: flow.ipController,
-                      intervalController: flow.intervalController,
-                      execTraceroute: () => flow.execTraceroute(
-                        onError: () => showErrorPopup(context),
-                      ),
-                      onReset: () => flow.reset(),
-                      hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
-                      isRunning: flow.isRunning,
-                      showSettings: () => showSettingsPopup(
-                        context,
-                        flow.graphInterval,
-                        flow.packetsLimit,
-                        flow.changeSettingParams,
-                        packetSize: flow.packetSize,
-                        maxHops: flow.maxHops,
-                        timeoutMs: flow.timeoutMs,
-                      ),
-                      onExport: () => showExportDialog(context, flow),
-                      setText: flow.setText,
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: LeftData(
-                        data: flow.tracerouteResult,
-                        isLoading: flow.isLoading,
-                        IPStats: flow.ipStats,
-                        deepStats: flow.deepStats,
-                        interval: flow.graphInterval,
-                        isRunning: flow.isRunning,
-                        isSuccess: flow.success,
-                        onOpenInNewTab: (ip) =>
-                            _addNewFlow(initialIp: ip, autoStart: true),
-                        onToggleStatistics: _toggleStatisticsVisibility,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            flex: 3,
+            child: Container(
+              clipBehavior: Clip.hardEdge,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.borderColor),
+                color: colors.panelBackground,
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                flex: 3,
-                child: Container(
-                  clipBehavior: Clip.hardEdge,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.borderColor),
-                    color: colors.panelBackground,
-                  ),
-                  child: BottomData(
-                    IPStats: flow.ipStats,
-                    deepStats: flow.deepStats,
-                    interval: flow.interval,
-                    isRunning: flow.isRunning,
-                    totalPackets: flow.packetSent,
-                    isLoading: flow.isLoading,
-                    graphInterval: flow.graphInterval,
-                    dataCollected: flow.dataCollected,
-                    success: flow.success,
-                    toggleStatistics: _toggleStatisticsVisibility,
-                  ),
-                ),
+              child: BottomData(
+                IPStats: flow.ipStats,
+                deepStats: flow.deepStats,
+                interval: flow.interval,
+                isRunning: flow.isRunning,
+                totalPackets: flow.packetSent,
+                isLoading: flow.isLoading,
+                graphInterval: flow.graphInterval,
+                dataCollected: flow.dataCollected,
+                success: flow.success,
+                events: flow.timelineEvents,
+                timelineHistory: flow.timelineHistory,
+                toggleStatistics: _toggleStatisticsVisibility,
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -453,6 +529,34 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                   ],
                 ),
                 const Spacer(),
+                Tooltip(
+                  message: flow.showControls
+                      ? 'Hide Target & Controls Bar'
+                      : 'Show Target & Controls Bar',
+                  child: IconButton(
+                    icon: Icon(
+                      flow.showControls
+                          ? FluentIcons.chevron_up
+                          : FluentIcons.chevron_down,
+                      size: 11,
+                      color: colors.textSecondary,
+                    ),
+                    onPressed: () => flow.toggleControls(),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Slot Settings & Customization',
+                  child: IconButton(
+                    icon: Icon(
+                      FluentIcons.settings,
+                      size: 11,
+                      color: colors.textSecondary,
+                    ),
+                    onPressed: () => _openFlowSettings(flow),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 if (flowIndex != -1)
                   Text(
                     '${flowIndex + 1} of ${_flows.length} tabs',
@@ -465,122 +569,115 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
             ),
           ),
           // Header Bar for Split Pane with editable Target IP & Interval
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: colors.panelBackgroundAlt,
-              border: Border(bottom: BorderSide(color: colors.borderColor)),
-            ),
-            child: Row(
-              children: [
-                Tooltip(
-                  message: flow.isRunning
-                      ? 'Pause Flow'
-                      : (flow.dataCollected || flow.ipStats.isNotEmpty)
-                      ? 'Resume Flow'
-                      : 'Start Flow',
-                  child: IconButton(
-                    icon: Icon(
-                      flow.isRunning
-                          ? FluentIcons.circle_pause_solid
-                          : FluentIcons.play_solid,
-                      size: 26,
-                      color: flow.isRunning
-                          ? colors.latencyWarn
-                          : colors.latencyGood,
-                    ),
-                    onPressed: () => flow.execTraceroute(
-                      onError: () => showErrorPopup(context),
-                    ),
-                  ),
-                ),
-                if (flow.dataCollected || flow.ipStats.isNotEmpty)
+          if (flow.showControls)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: colors.panelBackgroundAlt,
+                border: Border(bottom: BorderSide(color: colors.borderColor)),
+              ),
+              child: Row(
+                children: [
                   Tooltip(
-                    message: 'Reset Session & Clear Telemetry',
+                    message: flow.isRunning
+                        ? 'Pause Flow'
+                        : (flow.dataCollected || flow.ipStats.isNotEmpty)
+                        ? 'Resume Flow'
+                        : 'Start Flow',
                     child: IconButton(
                       icon: Icon(
-                        FluentIcons.refresh,
-                        size: 14,
-                        color: colors.textSecondary,
+                        flow.isRunning
+                            ? FluentIcons.circle_pause_solid
+                            : FluentIcons.play_solid,
+                        size: 26,
+                        color: flow.isRunning
+                            ? colors.latencyWarn
+                            : colors.latencyGood,
                       ),
-                      onPressed: () => flow.reset(),
+                      onPressed: () => flow.execTraceroute(
+                        onError: () => showErrorPopup(context),
+                      ),
                     ),
                   ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: TargetInputWithHistory(
-                    key: ValueKey(flow.ipController),
-                    controller: flow.ipController,
-                    typography: type,
-                    colors: colors,
-                    onChanged: (text) => flow.setText(text, 'ip'),
-                    width: double.infinity,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                SizedBox(
-                  width: 80,
-                  child: TextBox(
-                    placeholder: 'ms',
-                    textAlign: TextAlign.center,
-                    style: type.body,
-                    controller: flow.intervalController,
-                    suffix: Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Text('ms', style: type.caption),
+                  if (flow.dataCollected || flow.ipStats.isNotEmpty)
+                    Tooltip(
+                      message: 'Reset Session & Clear Telemetry',
+                      child: IconButton(
+                        icon: Icon(
+                          FluentIcons.refresh,
+                          size: 14,
+                          color: colors.textSecondary,
+                        ),
+                        onPressed: () => flow.reset(),
+                      ),
                     ),
-                    onChanged: (text) => flow.setText(text, 'interval'),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: 'Export Report',
-                  child: IconButton(
-                    icon: Icon(
-                      FluentIcons.share,
-                      size: 16,
-                      color: colors.textSecondary,
-                    ),
-                    onPressed: () => showExportDialog(context, flow),
-                  ),
-                ),
-                Tooltip(
-                  message: 'Settings',
-                  child: IconButton(
-                    icon: Icon(
-                      FluentIcons.settings,
-                      size: 16,
-                      color: colors.textSecondary,
-                    ),
-                    onPressed: () => showSettingsPopup(
-                      context,
-                      flow.graphInterval,
-                      flow.packetsLimit,
-                      flow.changeSettingParams,
-                      packetSize: flow.packetSize,
-                      maxHops: flow.maxHops,
-                      timeoutMs: flow.timeoutMs,
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TargetInputWithHistory(
+                      key: ValueKey(flow.ipController),
+                      controller: flow.ipController,
+                      typography: type,
+                      colors: colors,
+                      onChanged: (text) => flow.setText(text, 'ip'),
+                      width: double.infinity,
                     ),
                   ),
-                ),
-                if (_flows.length > 1)
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 80,
+                    child: TextBox(
+                      placeholder: 'ms',
+                      textAlign: TextAlign.center,
+                      style: type.body,
+                      controller: flow.intervalController,
+                      suffix: Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text('ms', style: type.caption),
+                      ),
+                      onChanged: (text) => flow.setText(text, 'interval'),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   Tooltip(
-                    message: 'Close Flow',
+                    message: 'Export Report',
                     child: IconButton(
                       icon: Icon(
-                        FluentIcons.chrome_close,
-                        size: 14,
+                        FluentIcons.share,
+                        size: 16,
                         color: colors.textSecondary,
                       ),
-                      onPressed: () {
-                        final idx = _flows.indexOf(flow);
-                        if (idx != -1) _closeFlow(idx);
-                      },
+                      onPressed: () => showExportDialog(context, flow),
                     ),
                   ),
-              ],
+                  Tooltip(
+                    message: 'Settings',
+                    child: IconButton(
+                      icon: Icon(
+                        FluentIcons.settings,
+                        size: 16,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: () => _openFlowSettings(flow),
+                    ),
+                  ),
+                  if (_flows.length > 1)
+                    Tooltip(
+                      message: 'Close Flow',
+                      child: IconButton(
+                        icon: Icon(
+                          FluentIcons.chrome_close,
+                          size: 14,
+                          color: colors.textSecondary,
+                        ),
+                        onPressed: () {
+                          final idx = _flows.indexOf(flow);
+                          if (idx != -1) _closeFlow(idx);
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
           // Split Pane Body
           Expanded(
             child: Padding(
@@ -597,7 +694,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                       interval: flow.graphInterval,
                       isRunning: flow.isRunning,
                       isSuccess: flow.success,
+                      showMetricCards: flow.showMetricCards,
+                      showGraphPills: flow.showGraphPills,
+                      showControls: flow.showControls,
+                      initialMetric: flow.activeMetric,
+                      onMetricChanged: flow.setActiveMetric,
+                      onToggleMetricCards: flow.toggleMetricCards,
+                      onToggleGraphPills: flow.toggleGraphPills,
+                      onToggleControls: flow.toggleControls,
+                      onReset: flow.reset,
                       onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
+                      onToggleStatistics: _toggleStatisticsVisibility,
                     );
                   }
 
@@ -614,7 +721,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                           interval: flow.graphInterval,
                           isRunning: flow.isRunning,
                           isSuccess: flow.success,
+                          showMetricCards: flow.showMetricCards,
+                          showGraphPills: flow.showGraphPills,
+                          showControls: flow.showControls,
+                          initialMetric: flow.activeMetric,
+                          onMetricChanged: flow.setActiveMetric,
+                          onToggleMetricCards: flow.toggleMetricCards,
+                          onToggleGraphPills: flow.toggleGraphPills,
+                          onToggleControls: flow.toggleControls,
+                          onReset: flow.reset,
                           onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
+                          onToggleStatistics: _toggleStatisticsVisibility,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -632,9 +749,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                           child: flow.deepStats.isNotEmpty
                               ? Graph(
                                   data: flow.deepStats.last,
-                                  dataType: 'lt',
+                                  dataType: flow.activeMetric,
                                   interval: flow.interval,
                                   isRunning: flow.isRunning,
+                                  onSelectMetric: flow.setActiveMetric,
+                                  onTogglePills: flow.toggleGraphPills,
+                                  onToggleCards: flow.toggleMetricCards,
+                                  onToggleControls: flow.toggleControls,
+                                  onReset: flow.reset,
+                                  showPills: flow.showGraphPills,
+                                  showCards: flow.showMetricCards,
+                                  showControls: flow.showControls,
                                 )
                               : Center(
                                   child: flow.isLoading
@@ -925,28 +1050,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           showNetworkInfoDialog(context),
       const SingleActivator(LogicalKeyboardKey.comma, meta: true): () {
         if (currentFlow != null) {
-          showSettingsPopup(
-            context,
-            currentFlow.graphInterval,
-            currentFlow.packetsLimit,
-            currentFlow.changeSettingParams,
-            packetSize: currentFlow.packetSize,
-            maxHops: currentFlow.maxHops,
-            timeoutMs: currentFlow.timeoutMs,
-          );
+          _openFlowSettings(currentFlow);
         }
       },
       const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
         if (currentFlow != null) {
-          showSettingsPopup(
-            context,
-            currentFlow.graphInterval,
-            currentFlow.packetsLimit,
-            currentFlow.changeSettingParams,
-            packetSize: currentFlow.packetSize,
-            maxHops: currentFlow.maxHops,
-            timeoutMs: currentFlow.timeoutMs,
-          );
+          _openFlowSettings(currentFlow);
         }
       },
     };
@@ -971,15 +1080,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                   onCloseFlow: _closeFlow,
                   showSettings: () {
                     if (currentFlow != null) {
-                      showSettingsPopup(
-                        context,
-                        currentFlow.graphInterval,
-                        currentFlow.packetsLimit,
-                        currentFlow.changeSettingParams,
-                        packetSize: currentFlow.packetSize,
-                        maxHops: currentFlow.maxHops,
-                        timeoutMs: currentFlow.timeoutMs,
-                      );
+                      _openFlowSettings(currentFlow);
                     }
                   },
                 );

@@ -1,7 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import '../core/theme.dart';
+import '../models/flow_session.dart';
 import 'graph.dart';
 import 'shared_widgets.dart';
+import 'timeline_chart.dart';
 
 class BottomData extends StatefulWidget {
   const BottomData({
@@ -16,6 +18,8 @@ class BottomData extends StatefulWidget {
     required this.dataCollected,
     required this.success,
     required this.toggleStatistics,
+    this.events = const [],
+    this.timelineHistory = const [],
   });
 
   final List<Map<String, dynamic>> IPStats;
@@ -28,6 +32,8 @@ class BottomData extends StatefulWidget {
   final bool dataCollected;
   final bool success;
   final Function() toggleStatistics;
+  final List<TimelineEvent> events;
+  final List<List<Map<String, dynamic>>> timelineHistory;
 
   @override
   State<BottomData> createState() => _BottomDataState();
@@ -36,6 +42,7 @@ class BottomData extends StatefulWidget {
 class _BottomDataState extends State<BottomData> {
   String dataType = 'pl';
   int selectedHop = 1;
+  int _viewMode = 0; // 0 = Hop Inspector, 1 = Timeframe Timeline, 2 = Incident Log
 
   void setGraphType(String type) {
     setState(() {
@@ -121,7 +128,13 @@ class _BottomDataState extends State<BottomData> {
     ]);
 
     final graph = widget.deepStats.isNotEmpty
-        ? Graph(data: selectedDeep, dataType: dataType, interval: widget.interval, isRunning: widget.isRunning)
+        ? Graph(
+            data: selectedDeep,
+            dataType: dataType,
+            interval: widget.interval,
+            isRunning: widget.isRunning,
+            onSelectMetric: setGraphType,
+          )
         : const SizedBox.shrink();
 
     final actions = Column(
@@ -138,82 +151,302 @@ class _BottomDataState extends State<BottomData> {
       ],
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 800;
-
-        if (isWide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 50,
-                child: hopSelectorVertical,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: SingleChildScrollView(child: statTable),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 5,
-                child: graph,
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 120,
-                child: SingleChildScrollView(child: actions),
-              ),
-            ],
-          );
-        }
-
-        // Compact / Split / Tablet Layout: no empty spaces, clean responsive layout
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Top View Mode Selector Bar
+        Row(
           children: [
-            SizedBox(
-              height: 32,
-              child: hopSelectorHorizontal,
+            _BottomTabPill(
+              icon: FluentIcons.table,
+              label: 'Hop Inspector',
+              isSelected: _viewMode == 0,
+              onTap: () => setState(() => _viewMode = 0),
+              colors: colors,
+              type: type,
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: SingleChildScrollView(child: statTable),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: graph),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
+            const SizedBox(width: 6),
+            _BottomTabPill(
+              icon: FluentIcons.timeline_progress,
+              label: 'Timeframe Timeline',
+              isSelected: _viewMode == 1,
+              onTap: () => setState(() => _viewMode = 1),
+              colors: colors,
+              type: type,
+            ),
+            const SizedBox(width: 6),
+            _BottomTabPill(
+              icon: FluentIcons.incident_triangle,
+              label: 'Incident Log (${widget.events.length})',
+              isSelected: _viewMode == 2,
+              onTap: () => setState(() => _viewMode = 2),
+              colors: colors,
+              type: type,
+            ),
+            const Spacer(),
+            if (_viewMode == 1 || _viewMode == 2)
+              Text(
+                'Selected: Hop $safeSelectedHop (${selectedStat['ip'] ?? 'Target'})',
+                style: type.caption.copyWith(color: colors.textSecondary),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Main View Body
+        Expanded(
+          child: _viewMode == 1
+              ? TimelineChart(
+                  deepStats: widget.deepStats,
+                  events: widget.events,
+                  selectedHop: safeSelectedHop,
+                  interval: widget.interval,
+                  isRunning: widget.isRunning,
+                  timelineHistory: widget.timelineHistory,
+                )
+              : _viewMode == 2
+                  ? _buildIncidentLogView(colors, type)
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth >= 800;
+
+                        if (isWide) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: 50,
+                                child: hopSelectorVertical,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 4,
+                                child: SingleChildScrollView(child: statTable),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 5,
+                                child: graph,
+                              ),
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 120,
+                                child: SingleChildScrollView(child: actions),
+                              ),
+                            ],
+                          );
+                        }
+
+                        // Compact / Split / Tablet Layout
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _GraphPill(label: 'Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                            _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                            _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                            _GraphPill(label: 'Avg', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                            SizedBox(
+                              height: 32,
+                              child: hopSelectorHorizontal,
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    flex: 5,
+                                    child: SingleChildScrollView(child: statTable),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    flex: 6,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: graph),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 4,
+                                          runSpacing: 4,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            _GraphPill(label: 'Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                                            _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                                            _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                                            _GraphPill(label: 'Avg', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIncidentLogView(AppColors colors, AppTypography type) {
+    if (widget.events.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(FluentIcons.completed_solid, size: 24, color: Colors.green),
+            const SizedBox(height: 8),
+            Text(
+              'No network incidents or packet loss events recorded in this session',
+              style: type.bodyStrong.copyWith(color: colors.textPrimary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Packet loss dropouts and latency surges will be logged automatically here with timestamps.',
+              style: type.caption.copyWith(color: colors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.panelBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.borderColor),
+      ),
+      child: ListView.separated(
+        itemCount: widget.events.length,
+        separatorBuilder: (_, __) => const Divider(),
+        itemBuilder: (context, index) {
+          final evt = widget.events[index];
+          final isLoss = evt.type == TimelineEventType.packetLoss;
+          final isSpike = evt.type == TimelineEventType.latencySpike;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isLoss
+                        ? Colors.red.withValues(alpha: 0.15)
+                        : isSpike
+                            ? Colors.orange.withValues(alpha: 0.15)
+                            : colors.accent.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                ],
+                  child: Icon(
+                    isLoss
+                        ? FluentIcons.warning
+                        : isSpike
+                            ? FluentIcons.speed_high
+                            : FluentIcons.timeline_progress,
+                    size: 14,
+                    color: isLoss
+                        ? Colors.red
+                        : isSpike
+                            ? Colors.orange
+                            : colors.accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            evt.title,
+                            style: type.bodyStrong.copyWith(
+                              color: isLoss ? Colors.red : colors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: colors.panelBackgroundAlt,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Hop ${evt.hop}',
+                              style: type.caption.copyWith(fontSize: 10, color: colors.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        evt.description,
+                        style: type.caption.copyWith(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  evt.timeFormatted,
+                  style: type.caption.copyWith(color: colors.textSecondary, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _BottomTabPill extends StatelessWidget {
+  const _BottomTabPill({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.colors,
+    required this.type,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final AppColors colors;
+  final AppTypography type;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.accent.withValues(alpha: 0.18) : colors.panelBackgroundAlt,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? colors.accent : colors.borderColor,
+            width: isSelected ? 1.2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: isSelected ? colors.accent : colors.textSecondary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: type.caption.copyWith(
+                color: isSelected ? colors.accent : colors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 11,
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -262,3 +495,4 @@ class _GraphPill extends StatelessWidget {
     );
   }
 }
+

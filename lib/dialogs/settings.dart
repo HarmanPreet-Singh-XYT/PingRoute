@@ -216,6 +216,15 @@ void showSettingsPopup(
   int packetSize = 56,
   int maxHops = 30,
   int timeoutMs = 1000,
+  bool? showMetricCards,
+  bool? showControls,
+  bool? showGraphPills,
+  String? activeMetric,
+  ValueChanged<bool>? onToggleMetricCards,
+  ValueChanged<bool>? onToggleControls,
+  ValueChanged<bool>? onToggleGraphPills,
+  ValueChanged<String>? onSelectMetric,
+  VoidCallback? onApplyToAllTabs,
 }) {
   showDialog(
     context: context,
@@ -227,6 +236,15 @@ void showSettingsPopup(
         maxHops: maxHops,
         timeoutMs: timeoutMs,
         changeSettingParams: changeSettingParams,
+        showMetricCards: showMetricCards,
+        showControls: showControls,
+        showGraphPills: showGraphPills,
+        activeMetric: activeMetric,
+        onToggleMetricCards: onToggleMetricCards,
+        onToggleControls: onToggleControls,
+        onToggleGraphPills: onToggleGraphPills,
+        onSelectMetric: onSelectMetric,
+        onApplyToAllTabs: onApplyToAllTabs,
       );
     },
   );
@@ -240,6 +258,15 @@ class _SettingsDialogContent extends StatefulWidget {
     this.packetSize = 56,
     this.maxHops = 30,
     this.timeoutMs = 1000,
+    this.showMetricCards,
+    this.showControls,
+    this.showGraphPills,
+    this.activeMetric,
+    this.onToggleMetricCards,
+    this.onToggleControls,
+    this.onToggleGraphPills,
+    this.onSelectMetric,
+    this.onApplyToAllTabs,
   });
 
   final int graphInterval;
@@ -248,6 +275,15 @@ class _SettingsDialogContent extends StatefulWidget {
   final int maxHops;
   final int timeoutMs;
   final Function(String text, String type) changeSettingParams;
+  final bool? showMetricCards;
+  final bool? showControls;
+  final bool? showGraphPills;
+  final String? activeMetric;
+  final ValueChanged<bool>? onToggleMetricCards;
+  final ValueChanged<bool>? onToggleControls;
+  final ValueChanged<bool>? onToggleGraphPills;
+  final ValueChanged<String>? onSelectMetric;
+  final VoidCallback? onApplyToAllTabs;
 
   @override
   State<_SettingsDialogContent> createState() => _SettingsDialogContentState();
@@ -259,6 +295,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   late int _packetSize;
   late int _maxHops;
   late int _timeoutMs;
+  late bool _showMetricCards;
+  late bool _showControls;
+  late bool _showGraphPills;
+  late String _activeMetric;
 
   @override
   void initState() {
@@ -268,6 +308,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     _packetSize = widget.packetSize;
     _maxHops = widget.maxHops;
     _timeoutMs = widget.timeoutMs;
+    _showMetricCards = widget.showMetricCards ?? true;
+    _showControls = widget.showControls ?? true;
+    _showGraphPills = widget.showGraphPills ?? true;
+    _activeMetric = widget.activeMetric ?? 'lt';
   }
 
   void _showContactOptions() {
@@ -614,6 +658,133 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Flow View & Layout Customization
+                Text('Flow View & Layout Customization', style: type.subtitle),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.panelBackground,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Metric Summary Cards', style: type.bodyStrong),
+                              Text('Hops, Max/Avg latency, Jitter, Loss tiles', style: type.caption),
+                            ],
+                          ),
+                          ToggleSwitch(
+                            checked: _showMetricCards,
+                            onChanged: (val) {
+                              setState(() => _showMetricCards = val);
+                              widget.onToggleMetricCards?.call(val);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Target & Controls Bar', style: type.bodyStrong),
+                              Text('Target IP, interval, play/pause controls', style: type.caption),
+                            ],
+                          ),
+                          ToggleSwitch(
+                            checked: _showControls,
+                            onChanged: (val) {
+                              setState(() => _showControls = val);
+                              widget.onToggleControls?.call(val);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Graph Metric Buttons', style: type.bodyStrong),
+                              Text('Packet Loss, Latency, Jitter, Avg Latency pills', style: type.caption),
+                            ],
+                          ),
+                          ToggleSwitch(
+                            checked: _showGraphPills,
+                            onChanged: (val) {
+                              setState(() => _showGraphPills = val);
+                              widget.onToggleGraphPills?.call(val);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Default Graph Metric', style: type.bodyStrong),
+                              Text('Initial metric shown on chart', style: type.caption),
+                            ],
+                          ),
+                          ComboBox<String>(
+                            value: _activeMetric,
+                            items: const [
+                              ComboBoxItem(value: 'lt', child: Text('Latency (ms)')),
+                              ComboBoxItem(value: 'alt', child: Text('Avg Latency (ms)')),
+                              ComboBoxItem(value: 'jt', child: Text('Jitter (ms)')),
+                              ComboBoxItem(value: 'pl', child: Text('Packet Loss (%)')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _activeMetric = val);
+                                widget.onSelectMetric?.call(val);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      if (widget.onApplyToAllTabs != null) ...[
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        Button(
+                          onPressed: widget.onApplyToAllTabs,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(FluentIcons.sync, size: 12, color: colors.accent),
+                              const SizedBox(width: 6),
+                              const Text('Apply View Settings to All Tabs'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

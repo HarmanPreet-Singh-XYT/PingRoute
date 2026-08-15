@@ -70,6 +70,34 @@ String getCurrentTime() {
   return DateFormat('mm:ss').format(now);
 }
 
+enum TimelineEventType {
+  packetLoss,
+  latencySpike,
+  routeChange,
+  sessionStart,
+  sessionPause,
+}
+
+class TimelineEvent {
+  final DateTime timestamp;
+  final String timeFormatted;
+  final TimelineEventType type;
+  final int hop;
+  final String title;
+  final String description;
+  final dynamic value;
+
+  TimelineEvent({
+    DateTime? timestamp,
+    required this.type,
+    required this.hop,
+    required this.title,
+    required this.description,
+    this.value,
+  })  : timestamp = timestamp ?? DateTime.now(),
+        timeFormatted = DateFormat('HH:mm:ss').format(timestamp ?? DateTime.now());
+}
+
 class FlowSession extends ChangeNotifier {
   FlowSession({
     String? id,
@@ -100,9 +128,59 @@ class FlowSession extends ChangeNotifier {
   List<Map<String, dynamic>> ipStats = [];
   List<Map<String, dynamic>> deepStats = [];
   List<Map<String, dynamic>> dataTypes = [];
+  List<List<Map<String, dynamic>>> timelineHistory = [];
+  List<TimelineEvent> timelineEvents = [];
+
+  bool showMetricCards = true;
+  bool showControls = true;
+  bool showGraphPills = true;
+  String activeMetric = 'lt';
 
   bool isStatisticsVisible = false;
   bool _isDisposed = false;
+
+  void addTimelineEvent(TimelineEvent event) {
+    timelineEvents.insert(0, event);
+    if (timelineEvents.length > 200) {
+      timelineEvents.removeLast();
+    }
+    notifyListeners();
+  }
+
+  void toggleMetricCards([bool? value]) {
+    showMetricCards = value ?? !showMetricCards;
+    notifyListeners();
+  }
+
+  void toggleControls([bool? value]) {
+    showControls = value ?? !showControls;
+    notifyListeners();
+  }
+
+  void toggleGraphPills([bool? value]) {
+    showGraphPills = value ?? !showGraphPills;
+    notifyListeners();
+  }
+
+  void setActiveMetric(String metric) {
+    if (activeMetric != metric) {
+      activeMetric = metric;
+      notifyListeners();
+    }
+  }
+
+  void copySettingsFrom(FlowSession source) {
+    showMetricCards = source.showMetricCards;
+    showControls = source.showControls;
+    showGraphPills = source.showGraphPills;
+    activeMetric = source.activeMetric;
+    graphInterval = source.graphInterval;
+    packetsLimit = source.packetsLimit;
+    packetSize = source.packetSize;
+    maxHops = source.maxHops;
+    timeoutMs = source.timeoutMs;
+    notifyListeners();
+  }
 
   String get ip {
     var text = ipController.text.trim();
@@ -310,6 +388,8 @@ class FlowSession extends ChangeNotifier {
     ipStats = [];
     deepStats = [];
     dataTypes = [];
+    timelineHistory = [];
+    timelineEvents = [];
     tracerouteResult = null;
     _lastTracedIp = null;
     notifyListeners();
@@ -353,6 +433,7 @@ class FlowSession extends ChangeNotifier {
       ipStats = [];
       deepStats = [];
       dataTypes = [];
+      timelineHistory = [];
       notifyListeners();
 
       final result = await _runHeavyTaskWithIsolate(currentIp);
@@ -383,6 +464,7 @@ class FlowSession extends ChangeNotifier {
           'jitter': <Map<String, dynamic>>[],
           'pings': <Map<String, dynamic>>[],
         });
+        timelineHistory.add(<Map<String, dynamic>>[]);
         dataTypes.add({'hop': parsedList[x]['hop'], 'dataType': 'lt'});
       }
       totalPackets = 0;
@@ -481,6 +563,45 @@ class FlowSession extends ChangeNotifier {
           final num avgPing = count > 0 ? (totalAVG / count).round() : 0;
           deepStats[y]['avg'].add({'time': time, 'value': avgPing});
           ipStats[y]['avg'] = avgPing;
+
+          // Record long-term timeline history point (retained up to 7200 points / 2 hours)
+          if (y < timelineHistory.length) {
+            timelineHistory[y].add({
+              'time': time,
+              'value': val,
+              'jitter': jitter,
+              'pl': calculatedPL,
+              'avg': avgPing,
+              'timestamp': roundStart,
+            });
+            if (timelineHistory[y].length > 7200) {
+              timelineHistory[y].removeAt(0);
+            }
+          }
+
+          // Event detection for notable incidents
+          final hopNum = (ipStats[y]['hop'] as int?) ?? (y + 1);
+          final hopName = ipStats[y]['name']?.toString().isNotEmpty == true
+              ? ipStats[y]['name']
+              : (ipStats[y]['ip'] ?? 'Hop $hopNum');
+
+          if (val == -1 && (pingsList.length < 2 || pingsList[pingsList.length - 2]['value'] != -1)) {
+            addTimelineEvent(TimelineEvent(
+              type: TimelineEventType.packetLoss,
+              hop: hopNum,
+              title: 'Packet Loss on Hop $hopNum',
+              description: 'Request timed out / packet dropped on $hopName',
+              value: -1,
+            ));
+          } else if (val > 150 && avgPing > 0 && val > (avgPing * 2.2)) {
+            addTimelineEvent(TimelineEvent(
+              type: TimelineEventType.latencySpike,
+              hop: hopNum,
+              title: 'Latency Spike: ${val}ms',
+              description: 'Surged from ${avgPing}ms avg to ${val}ms on Hop $hopNum ($hopName)',
+              value: val,
+            ));
+          }
 
           if (deepStats[y]['pl'].length > packetsLimit) deepStats[y]['pl'].removeAt(0);
           if (deepStats[y]['jitter'].length > packetsLimit) deepStats[y]['jitter'].removeAt(0);

@@ -1,5 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/widgets.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'dart:async';
 import '../core/theme.dart';
 
@@ -12,12 +12,28 @@ class Graph extends StatefulWidget {
     required this.data,
     required this.interval,
     required this.isRunning,
+    this.onSelectMetric,
+    this.onTogglePills,
+    this.onToggleCards,
+    this.onToggleControls,
+    this.onReset,
+    this.showPills = true,
+    this.showCards = true,
+    this.showControls = true,
   });
 
   final String dataType;
   final Map<String, dynamic> data;
   final int interval;
   final bool isRunning;
+  final ValueChanged<String>? onSelectMetric;
+  final VoidCallback? onTogglePills;
+  final VoidCallback? onToggleCards;
+  final VoidCallback? onToggleControls;
+  final VoidCallback? onReset;
+  final bool showPills;
+  final bool showCards;
+  final bool showControls;
 
   @override
   State<Graph> createState() => _GraphState();
@@ -25,6 +41,7 @@ class Graph extends StatefulWidget {
 
 class _GraphState extends State<Graph> {
   Timer? _timer;
+  final FlyoutController _flyoutController = FlyoutController();
 
   static const Map<_MetricKey, String> _dataKey = {
     _MetricKey.packetLoss: 'pl',
@@ -73,19 +90,146 @@ class _GraphState extends State<Graph> {
 
   @override
   void dispose() {
+    _flyoutController.dispose();
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _showContextMenu(TapDownDetails details) {
+    _flyoutController.showFlyout(
+      barrierColor: Colors.transparent,
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomCenter,
+      ),
+      builder: (context) {
+        final colors = appColors(context);
+        return MenuFlyout(
+          items: [
+            MenuFlyoutItem(
+              leading: Icon(
+                widget.dataType == 'lt' ? FluentIcons.check_mark : FluentIcons.speed_high,
+                size: 14,
+                color: widget.dataType == 'lt' ? colors.accent : colors.textSecondary,
+              ),
+              text: const Text('Latency (ms)'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSelectMetric?.call('lt');
+              },
+            ),
+            MenuFlyoutItem(
+              leading: Icon(
+                widget.dataType == 'alt' ? FluentIcons.check_mark : FluentIcons.line_chart,
+                size: 14,
+                color: widget.dataType == 'alt' ? colors.accent : colors.textSecondary,
+              ),
+              text: const Text('Average Latency (ms)'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSelectMetric?.call('alt');
+              },
+            ),
+            MenuFlyoutItem(
+              leading: Icon(
+                widget.dataType == 'jt' ? FluentIcons.check_mark : FluentIcons.heart,
+                size: 14,
+                color: widget.dataType == 'jt' ? colors.accent : colors.textSecondary,
+              ),
+              text: const Text('Jitter (ms)'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSelectMetric?.call('jt');
+              },
+            ),
+            MenuFlyoutItem(
+              leading: Icon(
+                widget.dataType == 'pl' ? FluentIcons.check_mark : FluentIcons.warning,
+                size: 14,
+                color: widget.dataType == 'pl' ? colors.accent : colors.textSecondary,
+              ),
+              text: const Text('Packet Loss (%)'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onSelectMetric?.call('pl');
+              },
+            ),
+            if (widget.onTogglePills != null ||
+                widget.onToggleCards != null ||
+                widget.onToggleControls != null) ...[
+              const MenuFlyoutSeparator(),
+              if (widget.onTogglePills != null)
+                MenuFlyoutItem(
+                  leading: Icon(
+                    widget.showPills ? FluentIcons.radio_bullet : FluentIcons.circle_shape,
+                    size: 12,
+                    color: colors.accent,
+                  ),
+                  text: Text(widget.showPills ? 'Hide Metric Buttons' : 'Show Metric Buttons'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    widget.onTogglePills?.call();
+                  },
+                ),
+              if (widget.onToggleCards != null)
+                MenuFlyoutItem(
+                  leading: Icon(
+                    widget.showCards ? FluentIcons.hide : FluentIcons.view,
+                    size: 14,
+                    color: colors.accent,
+                  ),
+                  text: Text(widget.showCards ? 'Hide Summary Cards' : 'Show Summary Cards'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    widget.onToggleCards?.call();
+                  },
+                ),
+              if (widget.onToggleControls != null)
+                MenuFlyoutItem(
+                  leading: Icon(
+                    widget.showControls ? FluentIcons.chevron_up : FluentIcons.chevron_down,
+                    size: 14,
+                    color: colors.accent,
+                  ),
+                  text: Text(widget.showControls ? 'Hide Target & Controls' : 'Show Target & Controls'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    widget.onToggleControls?.call();
+                  },
+                ),
+            ],
+            if (widget.onReset != null) ...[
+              const MenuFlyoutSeparator(),
+              MenuFlyoutItem(
+                leading: Icon(FluentIcons.refresh, size: 14, color: colors.latencyWarn),
+                text: const Text('Reset Telemetry Data'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onReset?.call();
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return SizedBox.expand(
-      child: Padding(
-        padding: const EdgeInsets.only(right: 18, left: 8, top: 12, bottom: 6),
-        child: LineChart(
-          _buildChartData(_activeKey, colors),
-          duration: Duration.zero,
+    return FlyoutTarget(
+      controller: _flyoutController,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapDown: _showContextMenu,
+        child: SizedBox.expand(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 18, left: 8, top: 12, bottom: 6),
+            child: LineChart(
+              _buildChartData(_activeKey, colors),
+              duration: Duration.zero,
+            ),
+          ),
         ),
       ),
     );
@@ -177,6 +321,29 @@ class _GraphState extends State<Graph> {
       maxX: maxX > 0 ? maxX : 1,
       minY: 0,
       maxY: maxY,
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (spot) => colors.cardBackground,
+          tooltipBorder: BorderSide(color: colors.borderColor, width: 1),
+          tooltipRoundedRadius: 8,
+          tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          getTooltipItems: (touchedSpots) {
+            return touchedSpots.map((spot) {
+              final idx = spot.x.toInt();
+              final timeStr = (idx >= 0 && idx < times.length) ? times[idx] : '';
+              final suffix = _isPercent ? '%' : ' ms';
+              return LineTooltipItem(
+                timeStr.isNotEmpty ? '$timeStr\n${spot.y.toStringAsFixed(1)}$suffix' : '${spot.y.toStringAsFixed(1)}$suffix',
+                TextStyle(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              );
+            }).toList();
+          },
+        ),
+      ),
       lineBarsData: [
         LineChartBarData(
           show: points.isNotEmpty,

@@ -101,6 +101,15 @@ class LeftData extends StatefulWidget {
     required this.isSuccess,
     this.onOpenInNewTab,
     this.onToggleStatistics,
+    this.showMetricCards = true,
+    this.showGraphPills = true,
+    this.showControls = true,
+    this.initialMetric,
+    this.onMetricChanged,
+    this.onToggleMetricCards,
+    this.onToggleGraphPills,
+    this.onToggleControls,
+    this.onReset,
   });
 
   final List<Map<String, dynamic>>? data;
@@ -112,19 +121,42 @@ class LeftData extends StatefulWidget {
   final bool isSuccess;
   final ValueChanged<String>? onOpenInNewTab;
   final VoidCallback? onToggleStatistics;
+  final bool showMetricCards;
+  final bool showGraphPills;
+  final bool showControls;
+  final String? initialMetric;
+  final ValueChanged<String>? onMetricChanged;
+  final VoidCallback? onToggleMetricCards;
+  final VoidCallback? onToggleGraphPills;
+  final VoidCallback? onToggleControls;
+  final VoidCallback? onReset;
 
   @override
   State<LeftData> createState() => _LeftDataState();
 }
 
 class _LeftDataState extends State<LeftData> {
-  String dataType = 'lt';
+  late String dataType;
   String? _sortColumn;
   bool _sortAscending = true;
   String _filterQuery = '';
   bool _isSearchOpen = false;
   final TextEditingController _filterController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    dataType = widget.initialMetric ?? 'lt';
+  }
+
+  @override
+  void didUpdateWidget(LeftData oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialMetric != null && widget.initialMetric != oldWidget.initialMetric) {
+      dataType = widget.initialMetric!;
+    }
+  }
 
   @override
   void dispose() {
@@ -137,6 +169,7 @@ class _LeftDataState extends State<LeftData> {
     setState(() {
       dataType = type;
     });
+    widget.onMetricChanged?.call(type);
   }
 
   void _onSort(String column) {
@@ -335,38 +368,56 @@ class _LeftDataState extends State<LeftData> {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    _GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                    _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                    _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                    _GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                  ],
-                ),
-              ),
-              if (widget.onToggleStatistics != null) ...[
-                const SizedBox(width: 6),
-                Tooltip(
-                  message: 'View All Hops Statistics',
-                  child: IconButton(
-                    icon: Icon(
-                      FluentIcons.timeline_progress,
-                      size: 14,
-                      color: colors.textSecondary,
-                    ),
-                    onPressed: widget.onToggleStatistics,
+          if (widget.showGraphPills) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceEvenly,
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      _GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                    ],
                   ),
                 ),
+                if (widget.onToggleStatistics != null) ...[
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'View All Hops Statistics',
+                    child: IconButton(
+                      icon: Icon(
+                        FluentIcons.timeline_progress,
+                        size: 14,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: widget.onToggleStatistics,
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 8),
+          ] else if (widget.onToggleStatistics != null) ...[
+            Align(
+              alignment: Alignment.topRight,
+              child: Tooltip(
+                message: 'View All Hops Statistics',
+                child: IconButton(
+                  icon: Icon(
+                    FluentIcons.timeline_progress,
+                    size: 14,
+                    color: colors.textSecondary,
+                  ),
+                  onPressed: widget.onToggleStatistics,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           Expanded(
             child: widget.deepStats.isNotEmpty
                 ? Graph(
@@ -374,6 +425,14 @@ class _LeftDataState extends State<LeftData> {
                     dataType: dataType,
                     interval: widget.interval,
                     isRunning: widget.isRunning,
+                    onSelectMetric: setGraphType,
+                    onTogglePills: widget.onToggleGraphPills,
+                    onToggleCards: widget.onToggleMetricCards,
+                    onToggleControls: widget.onToggleControls,
+                    onReset: widget.onReset,
+                    showPills: widget.showGraphPills,
+                    showCards: widget.showMetricCards,
+                    showControls: widget.showControls,
                   )
                 : Center(
                     child: widget.isLoading ? const ProgressRing() : Text('No data available', style: type.subtitle),
@@ -393,7 +452,7 @@ class _LeftDataState extends State<LeftData> {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 900;
         final columns = constraints.maxWidth < 600 ? _compactColumns : _fullColumns;
-        final showStatTiles = widget.isSuccess && !widget.isLoading;
+        final showStatTiles = widget.showMetricCards && widget.isSuccess && !widget.isLoading;
 
         if (isWide) {
           return Column(
