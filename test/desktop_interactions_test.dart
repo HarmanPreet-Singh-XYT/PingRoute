@@ -2,11 +2,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:PingRoute/core/theme.dart';
+import 'package:PingRoute/dialogs/settings.dart';
 import 'package:PingRoute/main.dart';
 import 'package:PingRoute/widgets/shared_widgets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    await AppSettings.instance.setHasCompletedOnboarding(true);
+  });
 
   group('Desktop Interactions & Micro-Animations Tests', () {
     testWidgets('StatTile renders properly with label and value', (tester) async {

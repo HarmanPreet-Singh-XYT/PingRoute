@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:PingRoute/dialogs/settings.dart';
 import 'package:PingRoute/models/flow_session.dart';
 import 'package:PingRoute/main.dart';
 
@@ -101,6 +102,10 @@ void main() {
   });
 
   group('TabView Multi-Flow UI Tests', () {
+    setUp(() async {
+      await AppSettings.instance.setHasCompletedOnboarding(true);
+    });
+
     testWidgets('supports adding new tabs and switching between them', (WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));

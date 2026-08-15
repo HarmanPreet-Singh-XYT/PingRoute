@@ -110,6 +110,7 @@ class LeftData extends StatefulWidget {
     this.onToggleGraphPills,
     this.onToggleControls,
     this.onReset,
+    this.insideOuterScroll = false,
   });
 
   final List<Map<String, dynamic>>? data;
@@ -130,6 +131,14 @@ class LeftData extends StatefulWidget {
   final VoidCallback? onToggleGraphPills;
   final VoidCallback? onToggleControls;
   final VoidCallback? onReset;
+
+  /// True when this widget sits inside another vertically scrolling
+  /// container (the 4-flow grid's compact pane stack). In that case the hop
+  /// table must not be its own independently-scrollable list — two nested
+  /// vertical scrollables fighting over the same drag gesture is what froze
+  /// touch scrolling on iPad. Instead the table sizes to its content and the
+  /// outer container does all the scrolling.
+  final bool insideOuterScroll;
 
   @override
   State<LeftData> createState() => _LeftDataState();
@@ -271,6 +280,9 @@ class _LeftDataState extends State<LeftData> {
     double? height,
   ) {
     final displayIndices = _getDisplayIndices();
+    // When sized to content (height == null) the list must not try to fill
+    // unbounded space, so its body isn't wrapped in Expanded.
+    Widget wrapBody(Widget child) => height == null ? child : Expanded(child: child);
 
     return Container(
       clipBehavior: Clip.hardEdge,
@@ -281,6 +293,7 @@ class _LeftDataState extends State<LeftData> {
         color: colors.panelBackground,
       ),
       child: Column(
+        mainAxisSize: height == null ? MainAxisSize.min : MainAxisSize.max,
         children: [
           _HeaderRow(
             colors: colors,
@@ -316,10 +329,10 @@ class _LeftDataState extends State<LeftData> {
             hasFilter: _filterQuery.isNotEmpty,
           ),
           widget.isLoading
-              ? const Expanded(child: Center(child: ProgressRing()))
+              ? wrapBody(const Center(child: ProgressRing()))
               : widget.isSuccess
-                  ? Expanded(
-                      child: displayIndices.isEmpty
+                  ? wrapBody(
+                      displayIndices.isEmpty
                           ? Center(
                               child: Text(
                                 'No hops match "$_filterQuery"',
@@ -347,7 +360,7 @@ class _LeftDataState extends State<LeftData> {
                               },
                             ),
                     )
-                  : const Expanded(child: SizedBox()),
+                  : wrapBody(const SizedBox()),
         ],
       ),
     );
@@ -450,7 +463,7 @@ class _LeftDataState extends State<LeftData> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 900;
+        final isWide = constraints.maxWidth >= 900 && !widget.insideOuterScroll;
         final columns = constraints.maxWidth < 600 ? _compactColumns : _fullColumns;
         final showStatTiles = widget.showMetricCards && widget.isSuccess && !widget.isLoading;
 
@@ -477,16 +490,25 @@ class _LeftDataState extends State<LeftData> {
         }
 
         // Compact / Split Mode: Full width table without squeeze
+        final tablePanel = _buildTablePanel(
+          context,
+          colors,
+          type,
+          columns,
+          widget.insideOuterScroll ? null : double.infinity,
+        );
+
         return Column(
+          mainAxisSize: widget.insideOuterScroll ? MainAxisSize.min : MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showStatTiles) ...[
               _StatTileRow(ipStats: widget.IPStats, deepStats: widget.deepStats, colors: colors, type: type),
               const SizedBox(height: 8),
             ],
-            Expanded(
-              child: _buildTablePanel(context, colors, type, columns, double.infinity),
-            ),
+            widget.insideOuterScroll
+                ? tablePanel
+                : Expanded(child: tablePanel),
           ],
         );
       },

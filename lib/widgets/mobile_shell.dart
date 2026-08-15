@@ -48,7 +48,7 @@ class MobileShell extends StatefulWidget {
 
 class _MobileShellState extends State<MobileShell> {
   int _tabIndex = 0;
-  int _selectedHop = 1;
+  int? _selectedHop;
   String _dataType = 'lt';
 
   void _openHop(int hop) {
@@ -68,6 +68,8 @@ class _MobileShellState extends State<MobileShell> {
   void _showTabOptions(BuildContext context, int index, FlowSession flow) {
     showDialog(
       context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
       builder: (context) {
         final colors = appColors(context);
         final type = appTypography(context);
@@ -141,6 +143,12 @@ class _MobileShellState extends State<MobileShell> {
     final safeIndex = widget.currentFlowIndex.clamp(0, widget.flows.length - 1);
     final currentSession = widget.flows[safeIndex];
 
+    final defaultHop = currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1;
+    final effectiveSelectedHop = (_selectedHop ?? defaultHop).clamp(
+      1,
+      currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1,
+    );
+
     final pages = [
       _OverviewTab(
         target: currentSession.title,
@@ -173,7 +181,7 @@ class _MobileShellState extends State<MobileShell> {
         deepStats: currentSession.deepStats,
         isSuccess: currentSession.success,
         isLoading: currentSession.isLoading,
-        selectedHop: _selectedHop,
+        selectedHop: effectiveSelectedHop,
         onSelectHop: (h) => setState(() => _selectedHop = h),
         dataType: _dataType,
         onSelectDataType: (t) => setState(() => _dataType = t),
@@ -188,7 +196,7 @@ class _MobileShellState extends State<MobileShell> {
         deepStats: currentSession.deepStats,
         events: currentSession.timelineEvents,
         timelineHistory: currentSession.timelineHistory,
-        selectedHop: _selectedHop,
+        selectedHop: effectiveSelectedHop,
         onSelectHop: (h) => setState(() => _selectedHop = h),
         interval: currentSession.interval,
         isRunning: currentSession.isRunning,
@@ -796,6 +804,8 @@ class _HopsTabState extends State<_HopsTab> {
 
     showDialog(
       context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
       builder: (context) {
         return ContentDialog(
           title: Row(

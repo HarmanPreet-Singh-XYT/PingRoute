@@ -17,12 +17,14 @@ import 'widgets/graph.dart';
 import 'widgets/middle_data.dart';
 import 'widgets/mobile_shell.dart';
 import 'widgets/navbar.dart';
+import 'widgets/onboarding_screen.dart';
 import 'widgets/statistics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPingIOS.register();
   await StorageHelper.initialize();
+  await AppSettings.instance.loadPreferences();
   runApp(const PingRouteApp());
 }
 
@@ -79,6 +81,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   bool _isStatisticsVisible = false;
 
   final FocusNode _keyboardFocusNode = FocusNode();
+
+  // Owns the scroll position for the 4-flow/2-flow grid's compact vertical
+  // pane stack. Created once and explicitly passed (never primary) so it
+  // never collides with the ambient PrimaryScrollController that
+  // ScaffoldPage hands out on iOS — see _verticalPaneStack.
+  final ScrollController _verticalPaneStackController = ScrollController();
 
   @override
   void initState() {
@@ -213,6 +221,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     }
     _keyboardFocusNode.dispose();
     _statisticsController.dispose();
+    _verticalPaneStackController.dispose();
     super.dispose();
   }
 
@@ -427,8 +436,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     FlowSession flow,
     int slotIndex,
     AppColors colors,
-    AppTypography type,
-  ) {
+    AppTypography type, {
+    bool insideOuterScroll = false,
+  }) {
     final flowIndex = _flows.indexOf(flow);
     return Container(
       key: ValueKey('split_slot_${slotIndex}_${flow.id}'),
@@ -438,6 +448,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         border: Border.all(color: colors.borderColor),
       ),
       child: Column(
+        mainAxisSize: insideOuterScroll ? MainAxisSize.min : MainAxisSize.max,
         children: [
           // Pane Slot Selector Bar
           Container(
@@ -544,18 +555,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                     onPressed: () => flow.toggleControls(),
                   ),
                 ),
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: 'Slot Settings & Customization',
-                  child: IconButton(
-                    icon: Icon(
-                      FluentIcons.settings,
-                      size: 11,
-                      color: colors.textSecondary,
-                    ),
-                    onPressed: () => _openFlowSettings(flow),
-                  ),
-                ),
                 const SizedBox(width: 6),
                 if (flowIndex != -1)
                   Text(
@@ -639,6 +638,21 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                   ),
                   const SizedBox(width: 4),
                   Tooltip(
+                    message: 'IP Directory & Saved Targets (⌘D)',
+                    child: IconButton(
+                      icon: Icon(
+                        FluentIcons.contact_list,
+                        size: 16,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: () => showTargetDirectoryDialog(
+                        context,
+                        initialTarget: flow.ip,
+                        onSelectTarget: (target) => flow.setText(target, 'ip'),
+                      ),
+                    ),
+                  ),
+                  Tooltip(
                     message: 'Export Report',
                     child: IconButton(
                       icon: Icon(
@@ -679,136 +693,174 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
               ),
             ),
           // Split Pane Body
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 900;
-                  if (isWide) {
-                    return LeftData(
-                      data: flow.tracerouteResult,
-                      isLoading: flow.isLoading,
-                      IPStats: flow.ipStats,
-                      deepStats: flow.deepStats,
-                      interval: flow.graphInterval,
-                      isRunning: flow.isRunning,
-                      isSuccess: flow.success,
-                      showMetricCards: flow.showMetricCards,
-                      showGraphPills: flow.showGraphPills,
-                      showControls: flow.showControls,
-                      initialMetric: flow.activeMetric,
-                      onMetricChanged: flow.setActiveMetric,
-                      onToggleMetricCards: flow.toggleMetricCards,
-                      onToggleGraphPills: flow.toggleGraphPills,
-                      onToggleControls: flow.toggleControls,
-                      onReset: flow.reset,
-                      onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
-                      onToggleStatistics: _toggleStatisticsVisibility,
-                    );
-                  }
-
-                  return Column(
-                    children: [
-                      // Hop Table
-                      Expanded(
-                        flex: 5,
-                        child: LeftData(
-                          data: flow.tracerouteResult,
-                          isLoading: flow.isLoading,
-                          IPStats: flow.ipStats,
-                          deepStats: flow.deepStats,
-                          interval: flow.graphInterval,
-                          isRunning: flow.isRunning,
-                          isSuccess: flow.success,
-                          showMetricCards: flow.showMetricCards,
-                          showGraphPills: flow.showGraphPills,
-                          showControls: flow.showControls,
-                          initialMetric: flow.activeMetric,
-                          onMetricChanged: flow.setActiveMetric,
-                          onToggleMetricCards: flow.toggleMetricCards,
-                          onToggleGraphPills: flow.toggleGraphPills,
-                          onToggleControls: flow.toggleControls,
-                          onReset: flow.reset,
-                          onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
-                          onToggleStatistics: _toggleStatisticsVisibility,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Live Target Latency Graph
-                      Expanded(
-                        flex: 4,
-                        child: Container(
-                          clipBehavior: Clip.hardEdge,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: colors.borderColor),
-                            color: colors.panelBackground,
-                          ),
-                          child: flow.deepStats.isNotEmpty
-                              ? Graph(
-                                  data: flow.deepStats.last,
-                                  dataType: flow.activeMetric,
-                                  interval: flow.interval,
-                                  isRunning: flow.isRunning,
-                                  onSelectMetric: flow.setActiveMetric,
-                                  onTogglePills: flow.toggleGraphPills,
-                                  onToggleCards: flow.toggleMetricCards,
-                                  onToggleControls: flow.toggleControls,
-                                  onReset: flow.reset,
-                                  showPills: flow.showGraphPills,
-                                  showCards: flow.showMetricCards,
-                                  showControls: flow.showControls,
-                                )
-                              : Center(
-                                  child: flow.isLoading
-                                      ? const ProgressRing()
-                                      : Text(
-                                          'No data available',
-                                          style: type.caption,
-                                        ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
+          _buildSplitCardBody(flow, colors, type, insideOuterScroll: insideOuterScroll),
         ],
       ),
     );
   }
 
-  /// Stacks [panes] vertically, each getting an equal share of [availableHeight]
-  /// as long as that share stays above [minPaneHeight]; otherwise each pane
-  /// is pinned to [minPaneHeight] and the stack scrolls instead of squeezing
-  /// panes down to an unusable size.
+  /// The hop table + live graph area of a split pane card. When
+  /// [insideOuterScroll] is true (the 4-flow grid's compact vertical stack),
+  /// this sizes itself to content instead of filling the available height,
+  /// and the hop table gives up its own independent scroll — see
+  /// [_verticalPaneStack] for why.
+  Widget _buildSplitCardBody(
+    FlowSession flow,
+    AppColors colors,
+    AppTypography type, {
+    required bool insideOuterScroll,
+  }) {
+    final body = Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 900;
+          if (isWide && !insideOuterScroll) {
+            return LeftData(
+              data: flow.tracerouteResult,
+              isLoading: flow.isLoading,
+              IPStats: flow.ipStats,
+              deepStats: flow.deepStats,
+              interval: flow.graphInterval,
+              isRunning: flow.isRunning,
+              isSuccess: flow.success,
+              showMetricCards: flow.showMetricCards,
+              showGraphPills: flow.showGraphPills,
+              showControls: flow.showControls,
+              initialMetric: flow.activeMetric,
+              onMetricChanged: flow.setActiveMetric,
+              onToggleMetricCards: flow.toggleMetricCards,
+              onToggleGraphPills: flow.toggleGraphPills,
+              onToggleControls: flow.toggleControls,
+              onReset: flow.reset,
+              onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
+              onToggleStatistics: _toggleStatisticsVisibility,
+            );
+          }
+
+          final hopTable = LeftData(
+            data: flow.tracerouteResult,
+            isLoading: flow.isLoading,
+            IPStats: flow.ipStats,
+            deepStats: flow.deepStats,
+            interval: flow.graphInterval,
+            isRunning: flow.isRunning,
+            isSuccess: flow.success,
+            showMetricCards: flow.showMetricCards,
+            showGraphPills: flow.showGraphPills,
+            showControls: flow.showControls,
+            initialMetric: flow.activeMetric,
+            onMetricChanged: flow.setActiveMetric,
+            onToggleMetricCards: flow.toggleMetricCards,
+            onToggleGraphPills: flow.toggleGraphPills,
+            onToggleControls: flow.toggleControls,
+            onReset: flow.reset,
+            onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
+            onToggleStatistics: _toggleStatisticsVisibility,
+            insideOuterScroll: insideOuterScroll,
+          );
+
+          final graph = Container(
+            clipBehavior: Clip.hardEdge,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.borderColor),
+              color: colors.panelBackground,
+            ),
+            child: flow.deepStats.isNotEmpty
+                ? Graph(
+                    data: flow.deepStats.last,
+                    dataType: flow.activeMetric,
+                    interval: flow.interval,
+                    isRunning: flow.isRunning,
+                    onSelectMetric: flow.setActiveMetric,
+                    onTogglePills: flow.toggleGraphPills,
+                    onToggleCards: flow.toggleMetricCards,
+                    onToggleControls: flow.toggleControls,
+                    onReset: flow.reset,
+                    showPills: flow.showGraphPills,
+                    showCards: flow.showMetricCards,
+                    showControls: flow.showControls,
+                  )
+                : Center(
+                    child: flow.isLoading
+                        ? const ProgressRing()
+                        : Text(
+                            'No data available',
+                            style: type.caption,
+                          ),
+                  ),
+          );
+
+          return Column(
+            mainAxisSize: insideOuterScroll ? MainAxisSize.min : MainAxisSize.max,
+            children: [
+              // Hop Table
+              insideOuterScroll ? hopTable : Expanded(flex: 5, child: hopTable),
+              const SizedBox(height: 8),
+              // Live Target Latency Graph
+              insideOuterScroll
+                  ? SizedBox(height: 260, child: graph)
+                  : Expanded(flex: 4, child: graph),
+            ],
+          );
+        },
+      ),
+    );
+
+    return insideOuterScroll ? body : Expanded(child: body);
+  }
+
+  /// Stacks pane builders vertically, each getting an equal share of
+  /// [availableHeight] as long as that share stays above [minPaneHeight];
+  /// otherwise each pane sizes to its own content and the stack scrolls
+  /// instead of squeezing panes down to an unusable size.
+  ///
+  /// Panes are built via [paneBuilders] rather than passed pre-built so that,
+  /// once we know whether the stack itself will scroll, each pane can be
+  /// told via `insideOuterScroll` to size its hop table to content instead
+  /// of giving it its own independent scroll. Two nested vertical
+  /// scrollables fighting over the same drag is what froze touch scrolling
+  /// on iPad in the 4-flow grid.
   Widget _verticalPaneStack(
-    List<Widget> panes,
+    List<Widget Function(bool insideOuterScroll)> paneBuilders,
     double availableHeight, {
     double minPaneHeight = 520,
     double spacing = 12,
   }) {
-    final totalSpacing = spacing * (panes.length - 1);
-    final perPaneHeight = (availableHeight - totalSpacing) / panes.length;
+    final totalSpacing = spacing * (paneBuilders.length - 1);
+    final perPaneHeight = (availableHeight - totalSpacing) / paneBuilders.length;
     final fits = perPaneHeight >= minPaneHeight;
 
-    final children = <Widget>[
-      for (int i = 0; i < panes.length; i++) ...[
-        if (i > 0) SizedBox(height: spacing),
-        fits
-            ? Expanded(child: panes[i])
-            : SizedBox(height: minPaneHeight, child: panes[i]),
-      ],
-    ];
-
     if (fits) {
-      return Column(children: children);
+      return Column(
+        children: [
+          for (int i = 0; i < paneBuilders.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing),
+            Expanded(child: paneBuilders[i](false)),
+          ],
+        ],
+      );
     }
-    return SingleChildScrollView(child: Column(children: children));
+
+    return SingleChildScrollView(
+      // Explicit and never primary: on iOS/iPadOS a vertical ScrollView with
+      // no controller defaults to the ambient PrimaryScrollController, which
+      // ScaffoldPage also hands to other scrollables in this subtree. Two
+      // Scrollables sharing one controller is what threw "ScrollController
+      // is attached to more than one ScrollPosition".
+      primary: false,
+      controller: _verticalPaneStackController,
+      child: Column(
+        children: [
+          for (int i = 0; i < paneBuilders.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing),
+            paneBuilders[i](true),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptySlotCard(
@@ -921,57 +973,38 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         // tablet range and below — normal desktop windows keep the grid.
         final isCompact = constraints.maxWidth < kTabletBreakpoint;
 
+        // Builds a pane (or empty-slot placeholder) for [slotIndex] given
+        // whether it will end up inside the vertical stack's outer scroll.
+        Widget buildPane(int slotIndex, bool insideOuterScroll) {
+          final flow = _getFlowForSlot(slotIndex);
+          return flow != null
+              ? _buildSplitCard(flow, slotIndex, colors, type, insideOuterScroll: insideOuterScroll)
+              : _buildEmptySlotCard(slotIndex + 1, colors, type);
+        }
+
         if (_viewMode == ViewMode.splitTwo) {
-          final flow0 = _getFlowForSlot(0);
-          final flow1 = _getFlowForSlot(1);
-
-          final firstPane = flow0 != null
-              ? _buildSplitCard(flow0, 0, colors, type)
-              : _buildEmptySlotCard(1, colors, type);
-          final secondPane = flow1 != null
-              ? _buildSplitCard(flow1, 1, colors, type)
-              : _buildEmptySlotCard(2, colors, type);
-
           if (isCompact) {
             return _verticalPaneStack([
-              firstPane,
-              secondPane,
+              (insideOuterScroll) => buildPane(0, insideOuterScroll),
+              (insideOuterScroll) => buildPane(1, insideOuterScroll),
             ], constraints.maxHeight);
           }
 
           return Row(
             children: [
-              Expanded(child: firstPane),
+              Expanded(child: buildPane(0, false)),
               const SizedBox(width: 12),
-              Expanded(child: secondPane),
+              Expanded(child: buildPane(1, false)),
             ],
           );
         } else {
           // 4-Pane Grid
-          final flow0 = _getFlowForSlot(0);
-          final flow1 = _getFlowForSlot(1);
-          final flow2 = _getFlowForSlot(2);
-          final flow3 = _getFlowForSlot(3);
-
-          final pane1 = flow0 != null
-              ? _buildSplitCard(flow0, 0, colors, type)
-              : _buildEmptySlotCard(1, colors, type);
-          final pane2 = flow1 != null
-              ? _buildSplitCard(flow1, 1, colors, type)
-              : _buildEmptySlotCard(2, colors, type);
-          final pane3 = flow2 != null
-              ? _buildSplitCard(flow2, 2, colors, type)
-              : _buildEmptySlotCard(3, colors, type);
-          final pane4 = flow3 != null
-              ? _buildSplitCard(flow3, 3, colors, type)
-              : _buildEmptySlotCard(4, colors, type);
-
           if (isCompact) {
             return _verticalPaneStack([
-              pane1,
-              pane2,
-              pane3,
-              pane4,
+              (insideOuterScroll) => buildPane(0, insideOuterScroll),
+              (insideOuterScroll) => buildPane(1, insideOuterScroll),
+              (insideOuterScroll) => buildPane(2, insideOuterScroll),
+              (insideOuterScroll) => buildPane(3, insideOuterScroll),
             ], constraints.maxHeight);
           }
 
@@ -980,9 +1013,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
               Expanded(
                 child: Row(
                   children: [
-                    Expanded(child: pane1),
+                    Expanded(child: buildPane(0, false)),
                     const SizedBox(width: 12),
-                    Expanded(child: pane2),
+                    Expanded(child: buildPane(1, false)),
                   ],
                 ),
               ),
@@ -990,9 +1023,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
               Expanded(
                 child: Row(
                   children: [
-                    Expanded(child: pane3),
+                    Expanded(child: buildPane(2, false)),
                     const SizedBox(width: 12),
-                    Expanded(child: pane4),
+                    Expanded(child: buildPane(3, false)),
                   ],
                 ),
               ),
@@ -1060,6 +1093,32 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       },
     };
 
+    if (!AppSettings.instance.hasCompletedOnboarding) {
+      return OnboardingScreen(
+        onComplete: (startTarget, autoStart) async {
+          await AppSettings.instance.setHasCompletedOnboarding(true);
+          if (startTarget != null &&
+              startTarget.isNotEmpty &&
+              _flows.isNotEmpty) {
+            final flow = _flows.first;
+            flow.setText(startTarget, 'ip');
+            if (autoStart) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                flow.execTraceroute(
+                  onError: () {
+                    if (mounted) showErrorPopup(context);
+                  },
+                );
+              });
+            }
+          }
+          if (mounted) {
+            setState(() {});
+          }
+        },
+      );
+    }
+
     return CallbackShortcuts(
       bindings: shortcuts,
       child: Focus(
@@ -1067,8 +1126,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         focusNode: _keyboardFocusNode,
         child: ScaffoldPage(
           padding: EdgeInsets.zero,
-          content: LayoutBuilder(
-            builder: (context, constraints) {
+          content: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
               final isMobile = screenClassForWidth(constraints.maxWidth) ==
                   ScreenClass.mobile;
 
@@ -1434,8 +1494,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ViewModePill extends StatelessWidget {

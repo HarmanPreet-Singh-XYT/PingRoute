@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/storage_helper.dart';
 import '../core/theme.dart';
 import '../models/target_directory.dart';
+import '../widgets/onboarding_screen.dart';
 
 class AppSettings extends ChangeNotifier {
   static final AppSettings instance = AppSettings._internal();
@@ -13,6 +15,7 @@ class AppSettings extends ChangeNotifier {
 
   AppSettings._internal() : _isTest = false {
     _loadFromDisk();
+    loadPreferences();
   }
 
   // Visible for testing without disk I/O
@@ -25,6 +28,7 @@ class AppSettings extends ChangeNotifier {
     int initialDefaultMaxHops = 30,
     int initialDefaultTimeoutMs = 1000,
     double initialUiScale = 1.0,
+    bool initialHasCompletedOnboarding = true,
   })  : _isTest = true,
         _themeMode = initialThemeMode,
         _defaultInterval = initialDefaultInterval,
@@ -33,7 +37,8 @@ class AppSettings extends ChangeNotifier {
         _defaultPacketSize = initialDefaultPacketSize,
         _defaultMaxHops = initialDefaultMaxHops,
         _defaultTimeoutMs = initialDefaultTimeoutMs,
-        _uiScale = initialUiScale;
+        _uiScale = initialUiScale,
+        _hasCompletedOnboarding = initialHasCompletedOnboarding;
 
   ThemeMode _themeMode = ThemeMode.system;
   int _defaultInterval = 1000;
@@ -43,6 +48,7 @@ class AppSettings extends ChangeNotifier {
   int _defaultMaxHops = 30;
   int _defaultTimeoutMs = 1000;
   double _uiScale = 1.0;
+  bool _hasCompletedOnboarding = false;
 
   ThemeMode get themeMode => _themeMode;
   int get defaultInterval => _defaultInterval;
@@ -52,6 +58,7 @@ class AppSettings extends ChangeNotifier {
   int get defaultMaxHops => _defaultMaxHops;
   int get defaultTimeoutMs => _defaultTimeoutMs;
   double get uiScale => _uiScale;
+  bool get hasCompletedOnboarding => _hasCompletedOnboarding;
 
   static String _resolveStoragePath() {
     try {
@@ -100,10 +107,26 @@ class AppSettings extends ChangeNotifier {
           if (data['uiScale'] is num) {
             _uiScale = (data['uiScale'] as num).toDouble().clamp(0.75, 1.50);
           }
+          if (data['hasCompletedOnboarding'] is bool) {
+            _hasCompletedOnboarding = data['hasCompletedOnboarding'] as bool;
+          }
         }
       }
     } catch (e) {
       debugPrint('Failed to load settings from disk: $e');
+    }
+  }
+
+  Future<void> loadPreferences() async {
+    if (_isTest) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey('has_completed_onboarding')) {
+        _hasCompletedOnboarding = prefs.getBool('has_completed_onboarding') ?? _hasCompletedOnboarding;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Failed to load preferences: $e');
     }
   }
 
@@ -131,12 +154,27 @@ class AppSettings extends ChangeNotifier {
         'defaultMaxHops': _defaultMaxHops,
         'defaultTimeoutMs': _defaultTimeoutMs,
         'uiScale': _uiScale,
+        'hasCompletedOnboarding': _hasCompletedOnboarding,
       };
 
       file.writeAsStringSync(jsonEncode(data), flush: true);
     } catch (e) {
       debugPrint('Failed to save settings to disk: $e');
     }
+  }
+
+  Future<void> setHasCompletedOnboarding(bool completed) async {
+    _hasCompletedOnboarding = completed;
+    notifyListeners();
+    saveToDisk();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_completed_onboarding', completed);
+    } catch (_) {}
+  }
+
+  Future<void> resetOnboarding() async {
+    await setHasCompletedOnboarding(false);
   }
 
   void setUiScale(double scale) {
@@ -228,6 +266,8 @@ void showSettingsPopup(
 }) {
   showDialog(
     context: context,
+    barrierDismissible: true,
+    dismissWithEsc: true,
     builder: (BuildContext context) {
       return _SettingsDialogContent(
         graphInterval: graphInterval,
@@ -320,6 +360,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
 
     showDialog(
       context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
       builder: (dialogContext) {
         return ContentDialog(
           constraints: const BoxConstraints(maxWidth: 380),
@@ -961,6 +1003,20 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                                 Icon(FluentIcons.code, size: 14),
                                 SizedBox(width: 6),
                                 Text('GitHub'),
+                              ],
+                            ),
+                          ),
+                          Button(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              showOnboardingDialog(context);
+                            },
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(FluentIcons.help, size: 14),
+                                SizedBox(width: 6),
+                                Text('App Tour & Features'),
                               ],
                             ),
                           ),

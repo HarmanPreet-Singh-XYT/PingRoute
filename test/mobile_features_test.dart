@@ -66,8 +66,10 @@ void main() {
     await tester.tap(find.text('Hops').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('192.168.1.1'), findsOneWidget);
-    expect(find.text('one.one.one.one'), findsOneWidget);
+    // Switch to Graph Tab and verify final hop (one.one.one.one) is selected by default
+    await tester.tap(find.text('Graph').last);
+    await tester.pumpAndSettle();
+    expect(find.text('one.one.one.one'), findsWidgets);
 
     // Switch to Timeline Tab
     await tester.tap(find.text('Timeline').last);

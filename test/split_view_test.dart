@@ -1,8 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:PingRoute/dialogs/settings.dart';
 import 'package:PingRoute/main.dart';
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({'has_completed_onboarding': true});
+    await AppSettings.instance.setHasCompletedOnboarding(true);
+  });
+
   testWidgets('MainApp renders ViewMode switcher and toggles modes without auto-creating tabs', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -76,6 +84,45 @@ void main() {
 
     // Verify Slot 1 now displays Tab 6
     expect(find.textContaining('Slot 1: Tab 6'), findsOneWidget);
+  });
+
+  testWidgets('4-Flow Grid at iPad-compact width scrolls without layout errors', (WidgetTester tester) async {
+    // Narrow enough to trip kTabletBreakpoint and force the vertical pane
+    // stack (the layout path where a nested hop-table ListView used to
+    // fight the outer SingleChildScrollView over vertical drags on iOS).
+    tester.view.physicalSize = const Size(820, 1180);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    // A vertical ScrollView with no explicit controller only falls back to
+    // the ambient PrimaryScrollController on mobile platforms, which is
+    // exactly how the real "ScrollController attached to more than one
+    // ScrollPosition" crash surfaced on iPad but never on a macOS run.
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    await tester.pumpWidget(const PingRouteApp());
+    await tester.pumpAndSettle();
+
+    // Create 3 more tabs so all 4 grid slots have a flow assigned.
+    for (int i = 0; i < 3; i++) {
+      await tester.tap(find.text('New Flow (⌘T)'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('4-Flow Grid'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Drag vertically across the grid the way a finger-scroll on iPad would.
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    debugDefaultTargetPlatformOverride = null;
   });
 }
 

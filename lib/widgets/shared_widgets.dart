@@ -321,25 +321,37 @@ class _StatTableRowItemState extends State<_StatTableRowItem> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(widget.label, style: widget.type.subtitle),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.value,
-                      style: widget.type.bodyStrong,
-                      textAlign: TextAlign.right,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (_isHovered) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        FluentIcons.copy,
-                        size: 12,
-                        color: widget.colors.accent,
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    style: widget.type.body.copyWith(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.value,
+                          style: widget.type.bodyStrong,
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      if (_isHovered) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          FluentIcons.copy,
+                          size: 12,
+                          color: widget.colors.accent,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ],
             ),

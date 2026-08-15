@@ -70,6 +70,46 @@ String getCurrentTime() {
   return DateFormat('mm:ss').format(now);
 }
 
+/// Keeps a single long-lived [Ping] stream open for one hop's target IP,
+/// rather than spawning a fresh native pinger every round. On iOS each
+/// [Ping] instance owns its own native socket + run-loop timer, so
+/// recreating one per hop per round (multiplied across every flow in the
+/// 4-flow grid) floods the main run loop and freezes the UI.
+class _HopPinger {
+  _HopPinger(this.targetIp, {required int timeoutMs}) {
+    _ping = Ping(
+      targetIp,
+      interval: 1,
+      timeout: (timeoutMs / 1000).ceil().clamp(1, 60),
+    );
+    _subscription = _ping.stream.listen((data) {
+      final responseTime = data.response?.time?.inMilliseconds;
+      lastValue = responseTime ?? -1;
+      hasResult = true;
+    }, onError: (_) {
+      lastValue = -1;
+      hasResult = true;
+    });
+  }
+
+  final String targetIp;
+  late final Ping _ping;
+  late final StreamSubscription<PingData> _subscription;
+  int lastValue = -1;
+
+  /// True once the native pinger has delivered its first reply/timeout.
+  /// Sampling before this point (which can take longer on iOS than
+  /// spawning a subprocess does on desktop) would otherwise record a false
+  /// packet-loss sample for every round the round-loop got to first —
+  /// baking artificial loss into the rolling history right from 0%.
+  bool hasResult = false;
+
+  void dispose() {
+    _subscription.cancel();
+    _ping.stop();
+  }
+}
+
 enum TimelineEventType {
   packetLoss,
   latencySpike,
@@ -138,6 +178,8 @@ class FlowSession extends ChangeNotifier {
 
   bool isStatisticsVisible = false;
   bool _isDisposed = false;
+
+  final List<_HopPinger?> _hopPingers = [];
 
   void addTimelineEvent(TimelineEvent event) {
     timelineEvents.insert(0, event);
@@ -375,7 +417,25 @@ class FlowSession extends ChangeNotifier {
 
   void stop() {
     isRunning = false;
+    _disposeHopPingers();
     notifyListeners();
+  }
+
+  void _disposeHopPingers() {
+    for (final pinger in _hopPingers) {
+      pinger?.dispose();
+    }
+    _hopPingers.clear();
+  }
+
+  void _startHopPingers() {
+    _disposeHopPingers();
+    for (final stat in ipStats) {
+      final targetIp = stat['ip'] as String? ?? '';
+      _hopPingers.add(
+        targetIp.isEmpty ? null : _HopPinger(targetIp, timeoutMs: timeoutMs),
+      );
+    }
   }
 
   void reset() {
@@ -410,6 +470,7 @@ class FlowSession extends ChangeNotifier {
     if (canResume) {
       // Resume existing session directly without resetting packet counts or history
       isRunning = true;
+      _startHopPingers();
       notifyListeners();
       runPingsWithDelay();
     } else {
@@ -472,6 +533,7 @@ class FlowSession extends ChangeNotifier {
       if (success) {
         tracerouteResult = parsedList;
         dataCollected = true;
+        _startHopPingers();
       } else {
         isRunning = false;
         onError?.call();
@@ -487,31 +549,26 @@ class FlowSession extends ChangeNotifier {
       final String time = getCurrentTime();
       if (!isRunning || _isDisposed) break;
 
-      final List<Future<int>> pingFutures = [];
-
-      for (int x = 0; x < ipStats.length; x++) {
-        final String targetIp = ipStats[x]['ip'] ?? '';
-        if (targetIp.isEmpty) {
-          pingFutures.add(Future.value(-1));
-          continue;
-        }
-        pingFutures.add(
-          Ping(targetIp, count: 1, interval: 1).stream.first.then((result) {
-            try {
-              return result.response?.time?.inMilliseconds ?? -1;
-            } catch (e) {
-              return -1;
-            }
-          }).catchError((e) => -1),
-        );
-      }
-
-      final List<int> tempPings = await Future.wait(pingFutures);
+      // Sample the latest value from each hop's persistent pinger instead of
+      // spawning a fresh native Ping per hop per round (see _HopPinger).
+      // A hop with no pinger result yet is skipped rather than recorded as
+      // loss — the pinger can take longer to deliver its first reply on iOS
+      // than a round takes to come around, and recording -1 in that window
+      // used to bake false 100% packet loss into the rolling history.
+      final List<int?> tempPings = [
+        for (int x = 0; x < ipStats.length; x++)
+          x < _hopPingers.length
+              ? (_hopPingers[x] == null
+                  ? -1
+                  : (_hopPingers[x]!.hasResult ? _hopPingers[x]!.lastValue : null))
+              : -1,
+      ];
       if (!isRunning || _isDisposed) break;
 
       if (deepStats.isNotEmpty) {
         for (int y = 0; y < tempPings.length; y++) {
-          final int val = tempPings[y];
+          final int? val = tempPings[y];
+          if (val == null) continue;
           packetSent++;
           ipStats[y]['sentPackets'] = (ipStats[y]['sentPackets'] as int) + 1;
           if (totalPackets < packetsLimit) totalPackets += 1;
@@ -624,6 +681,7 @@ class FlowSession extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     isRunning = false;
+    _disposeHopPingers();
     ipController.dispose();
     intervalController.dispose();
     super.dispose();

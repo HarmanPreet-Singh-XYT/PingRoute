@@ -4,6 +4,8 @@ import '../core/theme.dart';
 void showErrorPopup(BuildContext context) {
   showDialog(
     context: context,
+    barrierDismissible: true,
+    dismissWithEsc: true,
     builder: (BuildContext context) {
       final colors = appColors(context);
       final type = appTypography(context);

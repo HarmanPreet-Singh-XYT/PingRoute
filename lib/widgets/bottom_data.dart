@@ -41,7 +41,7 @@ class BottomData extends StatefulWidget {
 
 class _BottomDataState extends State<BottomData> {
   String dataType = 'pl';
-  int selectedHop = 1;
+  int? _selectedHop;
   int _viewMode = 0; // 0 = Hop Inspector, 1 = Timeframe Timeline, 2 = Incident Log
 
   void setGraphType(String type) {
@@ -52,7 +52,7 @@ class _BottomDataState extends State<BottomData> {
 
   void setHop(int hop) {
     setState(() {
-      selectedHop = hop;
+      _selectedHop = hop;
     });
   }
 
@@ -69,7 +69,8 @@ class _BottomDataState extends State<BottomData> {
       );
     }
 
-    final safeSelectedHop = selectedHop.clamp(1, widget.IPStats.isNotEmpty ? widget.IPStats.length : 1);
+    final defaultHop = widget.IPStats.isNotEmpty ? widget.IPStats.length : 1;
+    final safeSelectedHop = (_selectedHop ?? defaultHop).clamp(1, widget.IPStats.isNotEmpty ? widget.IPStats.length : 1);
     final selectedStat = widget.IPStats[safeSelectedHop - 1];
     final selectedDeep = widget.deepStats[safeSelectedHop - 1];
 

@@ -6,6 +6,8 @@ import '../models/flow_session.dart';
 void showExportDialog(BuildContext context, FlowSession flow) {
   showDialog(
     context: context,
+    barrierDismissible: true,
+    dismissWithEsc: true,
     builder: (context) => _ExportDialogContent(flow: flow),
   );
 }

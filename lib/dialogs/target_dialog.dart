@@ -9,6 +9,8 @@ void showTargetDirectoryDialog(
 }) {
   showDialog(
     context: context,
+    barrierDismissible: true,
+    dismissWithEsc: true,
     builder: (BuildContext context) {
       return _TargetDirectoryDialogContent(
         onSelectTarget: onSelectTarget,

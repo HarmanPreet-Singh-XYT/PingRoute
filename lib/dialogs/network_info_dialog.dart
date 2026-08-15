@@ -300,6 +300,8 @@ class NetworkDiagnosticsService {
 Future<void> showNetworkInfoDialog(BuildContext context) async {
   await showDialog(
     context: context,
+    barrierDismissible: true,
+    dismissWithEsc: true,
     builder: (context) => const _NetworkInfoDialogContent(),
   );
 }
