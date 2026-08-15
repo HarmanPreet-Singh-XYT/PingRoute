@@ -221,11 +221,11 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       key: ValueKey(flow.id),
       color: colors.pageBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 900;
+          if (isWide) {
+            return Column(
               children: [
                 Navbar(
                   key: ValueKey('navbar_${flow.id}'),
@@ -261,38 +261,88 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                     isSuccess: flow.success,
                     onOpenInNewTab: (ip) =>
                         _addNewFlow(initialIp: ip, autoStart: true),
+                    onToggleStatistics: _toggleStatisticsVisibility,
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            flex: 3,
-            child: Container(
-              clipBehavior: Clip.hardEdge,
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colors.borderColor),
-                color: colors.panelBackground,
+            );
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    Navbar(
+                      key: ValueKey('navbar_${flow.id}'),
+                      ipController: flow.ipController,
+                      intervalController: flow.intervalController,
+                      execTraceroute: () => flow.execTraceroute(
+                        onError: () => showErrorPopup(context),
+                      ),
+                      onReset: () => flow.reset(),
+                      hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
+                      isRunning: flow.isRunning,
+                      showSettings: () => showSettingsPopup(
+                        context,
+                        flow.graphInterval,
+                        flow.packetsLimit,
+                        flow.changeSettingParams,
+                        packetSize: flow.packetSize,
+                        maxHops: flow.maxHops,
+                        timeoutMs: flow.timeoutMs,
+                      ),
+                      onExport: () => showExportDialog(context, flow),
+                      setText: flow.setText,
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: LeftData(
+                        data: flow.tracerouteResult,
+                        isLoading: flow.isLoading,
+                        IPStats: flow.ipStats,
+                        deepStats: flow.deepStats,
+                        interval: flow.graphInterval,
+                        isRunning: flow.isRunning,
+                        isSuccess: flow.success,
+                        onOpenInNewTab: (ip) =>
+                            _addNewFlow(initialIp: ip, autoStart: true),
+                        onToggleStatistics: _toggleStatisticsVisibility,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: BottomData(
-                IPStats: flow.ipStats,
-                deepStats: flow.deepStats,
-                interval: flow.interval,
-                isRunning: flow.isRunning,
-                totalPackets: flow.packetSent,
-                isLoading: flow.isLoading,
-                graphInterval: flow.graphInterval,
-                dataCollected: flow.dataCollected,
-                success: flow.success,
-                toggleStatistics: _toggleStatisticsVisibility,
+              const SizedBox(height: 16),
+              Expanded(
+                flex: 3,
+                child: Container(
+                  clipBehavior: Clip.hardEdge,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.borderColor),
+                    color: colors.panelBackground,
+                  ),
+                  child: BottomData(
+                    IPStats: flow.ipStats,
+                    deepStats: flow.deepStats,
+                    interval: flow.interval,
+                    isRunning: flow.isRunning,
+                    totalPackets: flow.packetSent,
+                    isLoading: flow.isLoading,
+                    graphInterval: flow.graphInterval,
+                    dataCollected: flow.dataCollected,
+                    success: flow.success,
+                    toggleStatistics: _toggleStatisticsVisibility,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -535,12 +585,11 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  // Hop Table
-                  Expanded(
-                    flex: 5,
-                    child: LeftData(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 900;
+                  if (isWide) {
+                    return LeftData(
                       data: flow.tracerouteResult,
                       isLoading: flow.isLoading,
                       IPStats: flow.ipStats,
@@ -549,38 +598,57 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                       isRunning: flow.isRunning,
                       isSuccess: flow.success,
                       onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Live Target Latency Graph
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      clipBehavior: Clip.hardEdge,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: colors.borderColor),
-                        color: colors.panelBackground,
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      // Hop Table
+                      Expanded(
+                        flex: 5,
+                        child: LeftData(
+                          data: flow.tracerouteResult,
+                          isLoading: flow.isLoading,
+                          IPStats: flow.ipStats,
+                          deepStats: flow.deepStats,
+                          interval: flow.graphInterval,
+                          isRunning: flow.isRunning,
+                          isSuccess: flow.success,
+                          onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
+                        ),
                       ),
-                      child: flow.deepStats.isNotEmpty
-                          ? Graph(
-                              data: flow.deepStats.last,
-                              dataType: 'lt',
-                              interval: flow.interval,
-                              isRunning: flow.isRunning,
-                            )
-                          : Center(
-                              child: flow.isLoading
-                                  ? const ProgressRing()
-                                  : Text(
-                                      'No data available',
-                                      style: type.caption,
-                                    ),
-                            ),
-                    ),
-                  ),
-                ],
+                      const SizedBox(height: 8),
+                      // Live Target Latency Graph
+                      Expanded(
+                        flex: 4,
+                        child: Container(
+                          clipBehavior: Clip.hardEdge,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colors.borderColor),
+                            color: colors.panelBackground,
+                          ),
+                          child: flow.deepStats.isNotEmpty
+                              ? Graph(
+                                  data: flow.deepStats.last,
+                                  dataType: 'lt',
+                                  interval: flow.interval,
+                                  isRunning: flow.isRunning,
+                                )
+                              : Center(
+                                  child: flow.isLoading
+                                      ? const ProgressRing()
+                                      : Text(
+                                          'No data available',
+                                          style: type.caption,
+                                        ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

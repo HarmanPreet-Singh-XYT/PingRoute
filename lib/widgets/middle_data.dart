@@ -100,6 +100,7 @@ class LeftData extends StatefulWidget {
     required this.isRunning,
     required this.isSuccess,
     this.onOpenInNewTab,
+    this.onToggleStatistics,
   });
 
   final List<Map<String, dynamic>>? data;
@@ -110,6 +111,7 @@ class LeftData extends StatefulWidget {
   final bool isRunning;
   final bool isSuccess;
   final ValueChanged<String>? onOpenInNewTab;
+  final VoidCallback? onToggleStatistics;
 
   @override
   State<LeftData> createState() => _LeftDataState();
@@ -333,15 +335,35 @@ class _LeftDataState extends State<LeftData> {
       ),
       child: Column(
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceEvenly,
-            spacing: 6,
-            runSpacing: 4,
+          Row(
             children: [
-              _GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-              _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-              _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-              _GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.spaceEvenly,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                    _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                    _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                    _GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                  ],
+                ),
+              ),
+              if (widget.onToggleStatistics != null) ...[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: 'View All Hops Statistics',
+                  child: IconButton(
+                    icon: Icon(
+                      FluentIcons.timeline_progress,
+                      size: 14,
+                      color: colors.textSecondary,
+                    ),
+                    onPressed: widget.onToggleStatistics,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
