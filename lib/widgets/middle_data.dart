@@ -1,6 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import '../core/ip_geolocation.dart';
 import '../core/theme.dart';
 import '../dialogs/ip_info_dialog.dart';
 import '../models/target_directory.dart';
@@ -987,15 +986,14 @@ class _DataRowState extends State<_DataRow> {
                 Navigator.of(context).pop();
               },
             ),
-            if (!isPrivateIp(rawIp))
-              MenuFlyoutItem(
-                leading: const Icon(FluentIcons.globe, size: 14),
-                text: const Text('IP Info (Location, ISP...)'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  showIpInfoDialog(context, rawIp, name: widget.hop['name']?.toString());
-                },
-              ),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.globe, size: 14),
+              text: const Text('IP Info (Location, ISP...)'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                showIpInfoDialog(context, rawIp, name: widget.hop['name']?.toString());
+              },
+            ),
             if (widget.onOpenInNewTab != null)
               MenuFlyoutItem(
                 leading: const Icon(FluentIcons.open_in_new_tab, size: 14),

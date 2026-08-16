@@ -27,6 +27,7 @@ class _IpInfoDialogContent extends StatefulWidget {
 class _IpInfoDialogContentState extends State<_IpInfoDialogContent> {
   IpGeoInfo? _info;
   String? _error;
+  bool _isPrivate = false;
   bool _isLoading = true;
 
   @override
@@ -39,12 +40,22 @@ class _IpInfoDialogContentState extends State<_IpInfoDialogContent> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _isPrivate = false;
     });
     try {
-      final info = await IpGeoService.lookup(widget.ip, forceRefresh: forceRefresh);
+      final info = await IpGeoService.lookup(
+        widget.ip,
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         _info = info;
+        _isLoading = false;
+      });
+    } on IpGeoPrivateAddressException {
+      if (!mounted) return;
+      setState(() {
+        _isPrivate = true;
         _isLoading = false;
       });
     } catch (e) {
@@ -75,13 +86,18 @@ class _IpInfoDialogContentState extends State<_IpInfoDialogContent> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Tooltip(
-            message: 'Refresh (bypass cache)',
-            child: IconButton(
-              icon: Icon(FluentIcons.refresh, size: 16, color: colors.textSecondary),
-              onPressed: _isLoading ? null : () => _fetch(forceRefresh: true),
+          if (!_isPrivate)
+            Tooltip(
+              message: 'Refresh (bypass cache)',
+              child: IconButton(
+                icon: Icon(
+                  FluentIcons.refresh,
+                  size: 16,
+                  color: colors.textSecondary,
+                ),
+                onPressed: _isLoading ? null : () => _fetch(forceRefresh: true),
+              ),
             ),
-          ),
         ],
       ),
       content: SizedBox(
@@ -91,52 +107,82 @@ class _IpInfoDialogContentState extends State<_IpInfoDialogContent> {
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Center(child: ProgressRing()),
               )
+            : _isPrivate
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      FluentIcons.lock,
+                      size: 16,
+                      color: colors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This is a private/local address (e.g. LAN, loopback, or carrier-grade NAT). '
+                        'It has no public location or ISP info to look up.',
+                        style: type.body.copyWith(color: colors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              )
             : _error != null
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      children: [
-                        Icon(FluentIcons.warning, size: 16, color: colors.latencyWarn),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _error!,
-                            style: type.body.copyWith(color: colors.textSecondary),
-                          ),
-                        ),
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      FluentIcons.warning,
+                      size: 16,
+                      color: colors.latencyWarn,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _error!,
+                        style: type.body.copyWith(color: colors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_info!.hasCoordinates) ...[
+                      _IpLocationMap(info: _info!, colors: colors),
+                      const SizedBox(height: 12),
+                    ],
+                    StatTable(
+                      colors: colors,
+                      type: type,
+                      rows: [
+                        ('IP Address', _info!.ip),
+                        if (_info!.hostname.isNotEmpty)
+                          ('Hostname', _info!.hostname),
+                        if (_info!.asn.isNotEmpty) ('ASN', _info!.asn),
+                        if (_info!.asOrg.isNotEmpty)
+                          ('ISP / Org', _info!.asOrg),
+                        ('Anycast', _info!.anycast ? 'Yes' : 'No'),
+                        if (_info!.city.isNotEmpty) ('City', _info!.city),
+                        if (_info!.region.isNotEmpty) ('Region', _info!.region),
+                        if (_info!.countryCode.isNotEmpty)
+                          ('Country', _info!.countryName),
+                        if (_info!.postal.isNotEmpty)
+                          ('Postal Code', _info!.postal),
+                        if (_info!.coordinatesLabel.isNotEmpty)
+                          ('Coordinates', _info!.coordinatesLabel),
+                        if (_info!.timezone.isNotEmpty)
+                          ('Timezone', _info!.timezone),
                       ],
                     ),
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_info!.hasCoordinates) ...[
-                          _IpLocationMap(info: _info!, colors: colors),
-                          const SizedBox(height: 12),
-                        ],
-                        StatTable(
-                          colors: colors,
-                          type: type,
-                          rows: [
-                            ('IP Address', _info!.ip),
-                            if (_info!.hostname.isNotEmpty) ('Hostname', _info!.hostname),
-                            if (_info!.asn.isNotEmpty) ('ASN', _info!.asn),
-                            if (_info!.asOrg.isNotEmpty) ('ISP / Org', _info!.asOrg),
-                            ('Anycast', _info!.anycast ? 'Yes' : 'No'),
-                            if (_info!.city.isNotEmpty) ('City', _info!.city),
-                            if (_info!.region.isNotEmpty) ('Region', _info!.region),
-                            if (_info!.countryCode.isNotEmpty) ('Country', _info!.countryName),
-                            if (_info!.postal.isNotEmpty) ('Postal Code', _info!.postal),
-                            if (_info!.coordinatesLabel.isNotEmpty)
-                              ('Coordinates', _info!.coordinatesLabel),
-                            if (_info!.timezone.isNotEmpty) ('Timezone', _info!.timezone),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
+                ),
+              ),
       ),
       actions: [
         if (_error != null)
@@ -169,7 +215,9 @@ class _IpLocationMap extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 220,
-        decoration: BoxDecoration(border: Border.all(color: colors.borderColor)),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.borderColor),
+        ),
         child: FlutterMap(
           options: MapOptions(
             initialCenter: center,
@@ -189,15 +237,17 @@ class _IpLocationMap extends StatelessWidget {
                   point: center,
                   width: 32,
                   height: 32,
-                  child: Icon(FluentIcons.map_pin, color: colors.accent, size: 32),
+                  child: Icon(
+                    FluentIcons.map_pin,
+                    color: colors.accent,
+                    size: 32,
+                  ),
                 ),
               ],
             ),
             RichAttributionWidget(
               attributions: [
-                TextSourceAttribution(
-                  'OpenStreetMap contributors',
-                ),
+                TextSourceAttribution('OpenStreetMap contributors'),
               ],
             ),
           ],
