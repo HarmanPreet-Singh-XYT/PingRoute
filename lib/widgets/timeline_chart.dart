@@ -431,7 +431,7 @@ class _TimelineChartState extends State<TimelineChart> {
                 final index = value.toInt();
                 final text = (index >= 0 && index < times.length) ? times[index] : '';
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text(text, style: TextStyle(fontSize: 9, color: colors.textSecondary)),
                 );
               },
@@ -471,7 +471,7 @@ class _TimelineChartState extends State<TimelineChart> {
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (spot) => colors.cardBackground,
             tooltipBorder: BorderSide(color: colors.borderColor, width: 1),
-            tooltipRoundedRadius: 8,
+            tooltipBorderRadius: BorderRadius.circular(8),
             tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {

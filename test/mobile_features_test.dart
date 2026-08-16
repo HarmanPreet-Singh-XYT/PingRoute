@@ -34,9 +34,6 @@ void main() {
     flow.dataCollected = true;
     flow.success = true;
 
-    bool exportCalled = false;
-    bool statsCalled = false;
-
     await tester.pumpWidget(
       FluentApp(
         home: ScaffoldPage(
@@ -48,8 +45,8 @@ void main() {
             onAddFlow: () {},
             onCloseFlow: (_) {},
             showSettings: () {},
-            onExport: (_) => exportCalled = true,
-            onToggleStatistics: () => statsCalled = true,
+            onExport: (_) {},
+            onToggleStatistics: () {},
           ),
         ),
       ),

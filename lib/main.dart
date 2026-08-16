@@ -1,4 +1,3 @@
-import 'package:dart_ping_ios/dart_ping_ios.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:system_theme/system_theme.dart';
@@ -22,7 +21,6 @@ import 'widgets/statistics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  DartPingIOS.register();
   await StorageHelper.initialize();
   await AppSettings.instance.loadPreferences();
   runApp(const PingRouteApp());
@@ -107,12 +105,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     _addNewFlow(initialIp: '1.1.1.1');
   }
 
-  void _onFlowUpdated() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   FlowSession? _getFlowForSlot(int slotIndex) {
     if (slotIndex < _paneFlowIds.length && _paneFlowIds[slotIndex] != null) {
       final id = _paneFlowIds[slotIndex]!;
@@ -129,7 +121,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   void _addNewFlow({String initialIp = '1.1.1.1', bool autoStart = false}) {
     setState(() {
       final newFlow = FlowSession(initialIp: initialIp);
-      newFlow.addListener(_onFlowUpdated);
       _flows.add(newFlow);
       _tabFlyoutControllers.add(FlyoutController());
       _currentIndex = _flows.length - 1;
@@ -150,7 +141,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     if (_flows.length <= 1) return;
     setState(() {
       final removed = _flows.removeAt(index);
-      removed.removeListener(_onFlowUpdated);
       removed.dispose();
       _tabFlyoutControllers.removeAt(index);
 
@@ -174,7 +164,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
 
       for (int i = 0; i < _flows.length; i++) {
         if (i != keepIndex) {
-          _flows[i].removeListener(_onFlowUpdated);
           _flows[i].dispose();
         }
       }
@@ -216,7 +205,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     for (final flow in _flows) {
-      flow.removeListener(_onFlowUpdated);
       flow.dispose();
     }
     _keyboardFocusNode.dispose();
@@ -346,89 +334,102 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
 
   Widget _buildDesktopFlowBody(FlowSession flow, AppColors colors) {
     final type = appTypography(context);
-    return Container(
-      key: ValueKey(flow.id),
-      color: colors.pageBackground,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                flow.showControls
-                    ? Navbar(
-                        key: ValueKey('navbar_${flow.id}'),
-                        ipController: flow.ipController,
-                        intervalController: flow.intervalController,
-                        execTraceroute: () => flow.execTraceroute(
-                          onError: () => showErrorPopup(context),
-                        ),
-                        onReset: () => flow.reset(),
-                        hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
+    return ListenableBuilder(
+      listenable: flow,
+      builder: (context, _) {
+        return Container(
+          key: ValueKey('desktop_flow_body_${flow.id}'),
+          color: colors.pageBackground,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    flow.showControls
+                        ? Navbar(
+                            key: ValueKey('navbar_${flow.id}'),
+                            ipController: flow.ipController,
+                            intervalController: flow.intervalController,
+                            execTraceroute: () => flow.execTraceroute(
+                              onError: () => showErrorPopup(context),
+                            ),
+                            onReset: () => flow.reset(),
+                            hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
+                            isRunning: flow.isRunning,
+                            showSettings: () => _openFlowSettings(flow),
+                            onExport: () => showExportDialog(context, flow),
+                            setText: flow.setText,
+                          )
+                        : _buildMiniControlsBar(flow, colors, type),
+                    SizedBox(height: flow.showControls ? 16 : 8),
+                    Expanded(
+                      child: LeftData(
+                        key: ValueKey('left_data_${flow.id}'),
+                        data: flow.tracerouteResult,
+                        isLoading: flow.isLoading,
+                        IPStats: flow.ipStats,
+                        deepStats: flow.deepStats,
+                        interval: flow.graphInterval,
                         isRunning: flow.isRunning,
-                        showSettings: () => _openFlowSettings(flow),
-                        onExport: () => showExportDialog(context, flow),
-                        setText: flow.setText,
-                      )
-                    : _buildMiniControlsBar(flow, colors, type),
-                SizedBox(height: flow.showControls ? 16 : 8),
-                Expanded(
-                  child: LeftData(
-                    data: flow.tracerouteResult,
-                    isLoading: flow.isLoading,
+                        isSuccess: flow.success,
+                        showMetricCards: flow.showMetricCards,
+                        showGraphPills: flow.showGraphPills,
+                        showControls: flow.showControls,
+                        initialMetric: flow.activeMetric,
+                        onMetricChanged: flow.setActiveMetric,
+                        onToggleMetricCards: flow.toggleMetricCards,
+                        onToggleGraphPills: flow.toggleGraphPills,
+                        onToggleControls: flow.toggleControls,
+                        onReset: flow.reset,
+                        onOpenInNewTab: (ip) =>
+                            _addNewFlow(initialIp: ip, autoStart: true),
+                        onToggleStatistics: _toggleStatisticsVisibility,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                flex: 3,
+                child: Container(
+                  clipBehavior: Clip.hardEdge,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.borderColor),
+                    color: colors.panelBackground,
+                  ),
+                  child: BottomData(
+                    key: ValueKey('bottom_data_${flow.id}'),
                     IPStats: flow.ipStats,
                     deepStats: flow.deepStats,
-                    interval: flow.graphInterval,
+                    interval: flow.interval,
                     isRunning: flow.isRunning,
-                    isSuccess: flow.success,
-                    showMetricCards: flow.showMetricCards,
-                    showGraphPills: flow.showGraphPills,
-                    showControls: flow.showControls,
-                    initialMetric: flow.activeMetric,
-                    onMetricChanged: flow.setActiveMetric,
-                    onToggleMetricCards: flow.toggleMetricCards,
-                    onToggleGraphPills: flow.toggleGraphPills,
-                    onToggleControls: flow.toggleControls,
-                    onReset: flow.reset,
-                    onOpenInNewTab: (ip) =>
-                        _addNewFlow(initialIp: ip, autoStart: true),
-                    onToggleStatistics: _toggleStatisticsVisibility,
+                    totalPackets: flow.packetSent,
+                    isLoading: flow.isLoading,
+                    graphInterval: flow.graphInterval,
+                    dataCollected: flow.dataCollected,
+                    success: flow.success,
+                    events: flow.timelineEvents,
+                    timelineHistory: flow.timelineHistory,
+                    toggleStatistics: _toggleStatisticsVisibility,
+                    initialViewMode: flow.bottomViewMode,
+                    onViewModeChanged: flow.setBottomViewMode,
+                    initialSelectedHop: flow.bottomSelectedHop,
+                    onSelectedHopChanged: flow.setBottomSelectedHop,
+                    initialDataType: flow.bottomDataType,
+                    onDataTypeChanged: flow.setBottomDataType,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            flex: 3,
-            child: Container(
-              clipBehavior: Clip.hardEdge,
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colors.borderColor),
-                color: colors.panelBackground,
               ),
-              child: BottomData(
-                IPStats: flow.ipStats,
-                deepStats: flow.deepStats,
-                interval: flow.interval,
-                isRunning: flow.isRunning,
-                totalPackets: flow.packetSent,
-                isLoading: flow.isLoading,
-                graphInterval: flow.graphInterval,
-                dataCollected: flow.dataCollected,
-                success: flow.success,
-                events: flow.timelineEvents,
-                timelineHistory: flow.timelineHistory,
-                toggleStatistics: _toggleStatisticsVisibility,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -440,26 +441,29 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     bool insideOuterScroll = false,
   }) {
     final flowIndex = _flows.indexOf(flow);
-    return Container(
-      key: ValueKey('split_slot_${slotIndex}_${flow.id}'),
-      decoration: BoxDecoration(
-        color: colors.panelBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.borderColor),
-      ),
-      child: Column(
-        mainAxisSize: insideOuterScroll ? MainAxisSize.min : MainAxisSize.max,
-        children: [
-          // Pane Slot Selector Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.panelBackgroundAlt,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(11),
-              ),
-              border: Border(bottom: BorderSide(color: colors.borderColor)),
-            ),
+    return ListenableBuilder(
+      listenable: flow,
+      builder: (context, _) {
+        return Container(
+          key: ValueKey('split_slot_${slotIndex}_${flow.id}'),
+          decoration: BoxDecoration(
+            color: colors.panelBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.borderColor),
+          ),
+          child: Column(
+            mainAxisSize: insideOuterScroll ? MainAxisSize.min : MainAxisSize.max,
+            children: [
+              // Pane Slot Selector Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.panelBackgroundAlt,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(11),
+                  ),
+                  border: Border(bottom: BorderSide(color: colors.borderColor)),
+                ),
             child: Row(
               children: [
                 DropDownButton(
@@ -696,6 +700,8 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           _buildSplitCardBody(flow, colors, type, insideOuterScroll: insideOuterScroll),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -1036,6 +1042,75 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     );
   }
 
+  void _showTabContextMenu(
+    BuildContext context,
+    FlyoutController controller,
+    FlowSession flow,
+    int index,
+  ) {
+    controller.showFlyout(
+      barrierColor: Colors.transparent,
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomCenter,
+      ),
+      builder: (context) => MenuFlyout(
+        items: [
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.add, size: 14),
+            text: const Text('Duplicate Tab'),
+            onPressed: () {
+              _addNewFlow(initialIp: flow.ip);
+              Navigator.of(context).pop();
+            },
+          ),
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.share, size: 14),
+            text: const Text('Export Report'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              showExportDialog(context, flow);
+            },
+          ),
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.copy, size: 14),
+            text: Text('Copy Target (${flow.ip})'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: flow.ip));
+              displayInfoBar(
+                context,
+                builder: (context, close) => InfoBar(
+                  title: const Text('Copied'),
+                  content: Text('"${flow.ip}" copied to clipboard.'),
+                  severity: InfoBarSeverity.success,
+                ),
+              );
+              Navigator.of(context).pop();
+            },
+          ),
+          if (_flows.length > 1) ...[
+            const MenuFlyoutSeparator(),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.chrome_close, size: 14),
+              text: const Text('Close Tab'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _closeFlow(index);
+              },
+            ),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.clear, size: 14),
+              text: const Text('Close Other Tabs'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _closeOtherFlows(index);
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -1262,180 +1337,96 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                         ? _tabFlyoutControllers[index]
                                         : FlyoutController();
 
-                                    Widget leadingIcon;
-                                    if (flow.isRunning) {
-                                      leadingIcon = Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: colors.latencyGood,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      );
-                                    } else if (flow.isLoading) {
-                                      leadingIcon = const SizedBox(
-                                        width: 10,
-                                        height: 10,
-                                        child: ProgressRing(strokeWidth: 2),
-                                      );
-                                    } else {
-                                      leadingIcon = const Icon(
-                                        FluentIcons.network_tower,
-                                        size: 14,
-                                      );
-                                    }
+                                    final leadingIcon = GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onSecondaryTapDown: (_) =>
+                                          _showTabContextMenu(
+                                            context,
+                                            tabFlyout,
+                                            flow,
+                                            index,
+                                          ),
+                                      child: ListenableBuilder(
+                                        listenable: flow,
+                                        builder: (context, _) {
+                                          if (flow.isRunning) {
+                                            return Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: colors.latencyGood,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            );
+                                          } else if (flow.isLoading) {
+                                            return const SizedBox(
+                                              width: 10,
+                                              height: 10,
+                                              child: ProgressRing(strokeWidth: 2),
+                                            );
+                                          } else {
+                                            return const Icon(
+                                              FluentIcons.network_tower,
+                                              size: 14,
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    );
 
                                     return Tab(
+                                      key: ValueKey('tab_${flow.id}'),
                                       text: FlyoutTarget(
                                         controller: tabFlyout,
                                         child: GestureDetector(
-                                          onSecondaryTapDown: (details) {
-                                            tabFlyout.showFlyout(
-                                              barrierColor: Colors.transparent,
-                                              autoModeConfiguration:
-                                                  FlyoutAutoConfiguration(
-                                                    preferredMode:
-                                                        FlyoutPlacementMode
-                                                            .bottomCenter,
-                                                  ),
-                                              builder: (context) => MenuFlyout(
-                                                items: [
-                                                  MenuFlyoutItem(
-                                                    leading: const Icon(
-                                                      FluentIcons.add,
-                                                      size: 14,
-                                                    ),
-                                                    text: const Text(
-                                                      'Duplicate Tab',
-                                                    ),
-                                                    onPressed: () {
-                                                      _addNewFlow(
-                                                        initialIp: flow.ip,
-                                                      );
-                                                      Navigator.of(context).pop();
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    leading: const Icon(
-                                                      FluentIcons.share,
-                                                      size: 14,
-                                                    ),
-                                                    text: const Text(
-                                                      'Export Report',
-                                                    ),
-                                                    onPressed: () {
-                                                      Navigator.of(context).pop();
-                                                      showExportDialog(
-                                                        context,
-                                                        flow,
-                                                      );
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    leading: const Icon(
-                                                      FluentIcons.copy,
-                                                      size: 14,
-                                                    ),
-                                                    text: Text(
-                                                      'Copy Target (${flow.ip})',
-                                                    ),
-                                                    onPressed: () {
-                                                      Clipboard.setData(
-                                                        ClipboardData(
-                                                          text: flow.ip,
-                                                        ),
-                                                      );
-                                                      displayInfoBar(
-                                                        context,
-                                                        builder:
-                                                            (
-                                                              context,
-                                                              close,
-                                                            ) => InfoBar(
-                                                              title: const Text(
-                                                                'Copied',
-                                                              ),
-                                                              content: Text(
-                                                                '"${flow.ip}" copied to clipboard.',
-                                                              ),
-                                                              severity:
-                                                                  InfoBarSeverity
-                                                                      .success,
-                                                              ),
-                                                      );
-                                                      Navigator.of(context).pop();
-                                                    },
-                                                  ),
-                                                  if (_flows.length > 1) ...[
-                                                    const MenuFlyoutSeparator(),
-                                                    MenuFlyoutItem(
-                                                      leading: const Icon(
-                                                        FluentIcons.chrome_close,
-                                                        size: 14,
-                                                      ),
-                                                      text: const Text(
-                                                        'Close Tab',
-                                                      ),
-                                                      onPressed: () {
-                                                        Navigator.of(
-                                                          context,
-                                                        ).pop();
-                                                        _closeFlow(index);
-                                                      },
-                                                    ),
-                                                    MenuFlyoutItem(
-                                                      leading: const Icon(
-                                                        FluentIcons.clear,
-                                                        size: 14,
-                                                      ),
-                                                      text: const Text(
-                                                        'Close Other Tabs',
-                                                      ),
-                                                      onPressed: () {
-                                                        Navigator.of(
-                                                          context,
-                                                        ).pop();
-                                                        _closeOtherFlows(index);
-                                                      },
-                                                    ),
-                                                  ],
-                                                ],
+                                          behavior: HitTestBehavior.opaque,
+                                          onSecondaryTapDown: (_) =>
+                                              _showTabContextMenu(
+                                                context,
+                                                tabFlyout,
+                                                flow,
+                                                index,
                                               ),
-                                            );
-                                          },
-                                          child: ListenableBuilder(
-                                            listenable: flow.ipController,
-                                            builder: (context, _) {
-                                              return Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    flow.title,
-                                                    style: TextStyle(
-                                                      color: index == activeIndex
-                                                          ? colors.textPrimary
-                                                          : colors.textSecondary,
-                                                      fontWeight:
-                                                          index == activeIndex
-                                                          ? FontWeight.w600
-                                                          : FontWeight.w500,
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                  if (index == activeIndex) ...[
-                                                    const SizedBox(width: 6),
-                                                    Container(
-                                                      width: 6,
-                                                      height: 6,
-                                                      decoration: BoxDecoration(
-                                                        color: colors.accent,
-                                                        shape: BoxShape.circle,
+                                          child: Container(
+                                            color: Colors.transparent,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                              vertical: 4,
+                                            ),
+                                            child: ListenableBuilder(
+                                              listenable: flow.ipController,
+                                              builder: (context, _) {
+                                                return Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      flow.title,
+                                                      style: TextStyle(
+                                                        color: index == activeIndex
+                                                            ? colors.textPrimary
+                                                            : colors.textSecondary,
+                                                        fontWeight:
+                                                            index == activeIndex
+                                                            ? FontWeight.w600
+                                                            : FontWeight.w500,
+                                                        fontSize: 13,
                                                       ),
                                                     ),
+                                                    if (index == activeIndex) ...[
+                                                      const SizedBox(width: 6),
+                                                      Container(
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration: BoxDecoration(
+                                                          color: colors.accent,
+                                                          shape: BoxShape.circle,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ],
-                                                ],
-                                              );
-                                            },
+                                                );
+                                              },
+                                            ),
                                           ),
                                         ),
                                       ),

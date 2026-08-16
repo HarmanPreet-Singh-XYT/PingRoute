@@ -340,6 +340,7 @@ class _LeftDataState extends State<LeftData> {
                               ),
                             )
                           : ListView.builder(
+                              key: const PageStorageKey('left_data_hop_table_list'),
                               controller: height == null ? null : _scrollController,
                               primary: false,
                               itemCount: displayIndices.length,

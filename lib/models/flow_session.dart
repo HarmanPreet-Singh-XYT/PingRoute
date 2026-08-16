@@ -82,9 +82,12 @@ class _HopPinger {
       interval: 1,
       timeout: (timeoutMs / 1000).ceil().clamp(1, 60),
     );
-    _subscription = _ping.stream.listen((data) {
-      final responseTime = data.response?.time?.inMilliseconds;
-      lastValue = responseTime ?? -1;
+    _subscription = _ping.stream.listen((event) {
+      if (event is PingResponse) {
+        lastValue = event.time?.inMilliseconds ?? -1;
+      } else if (event is PingError) {
+        lastValue = -1;
+      }
       hasResult = true;
     }, onError: (_) {
       lastValue = -1;
@@ -94,7 +97,7 @@ class _HopPinger {
 
   final String targetIp;
   late final Ping _ping;
-  late final StreamSubscription<PingData> _subscription;
+  late final StreamSubscription<PingEvent> _subscription;
   int lastValue = -1;
 
   /// True once the native pinger has delivered its first reply/timeout.
@@ -175,18 +178,44 @@ class FlowSession extends ChangeNotifier {
   bool showControls = true;
   bool showGraphPills = true;
   String activeMetric = 'lt';
+  int bottomViewMode = 0;
+  int? bottomSelectedHop;
+  String bottomDataType = 'pl';
 
   bool isStatisticsVisible = false;
   bool _isDisposed = false;
 
   final List<_HopPinger?> _hopPingers = [];
 
-  void addTimelineEvent(TimelineEvent event) {
+  void setBottomViewMode(int mode) {
+    if (bottomViewMode != mode) {
+      bottomViewMode = mode;
+      notifyListeners();
+    }
+  }
+
+  void setBottomSelectedHop(int hop) {
+    if (bottomSelectedHop != hop) {
+      bottomSelectedHop = hop;
+      notifyListeners();
+    }
+  }
+
+  void setBottomDataType(String type) {
+    if (bottomDataType != type) {
+      bottomDataType = type;
+      notifyListeners();
+    }
+  }
+
+  void addTimelineEvent(TimelineEvent event, {bool notify = true}) {
     timelineEvents.insert(0, event);
     if (timelineEvents.length > 200) {
       timelineEvents.removeLast();
     }
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   void toggleMetricCards([bool? value]) {
@@ -643,21 +672,27 @@ class FlowSession extends ChangeNotifier {
               : (ipStats[y]['ip'] ?? 'Hop $hopNum');
 
           if (val == -1 && (pingsList.length < 2 || pingsList[pingsList.length - 2]['value'] != -1)) {
-            addTimelineEvent(TimelineEvent(
-              type: TimelineEventType.packetLoss,
-              hop: hopNum,
-              title: 'Packet Loss on Hop $hopNum',
-              description: 'Request timed out / packet dropped on $hopName',
-              value: -1,
-            ));
+            addTimelineEvent(
+              TimelineEvent(
+                type: TimelineEventType.packetLoss,
+                hop: hopNum,
+                title: 'Packet Loss on Hop $hopNum',
+                description: 'Request timed out / packet dropped on $hopName',
+                value: -1,
+              ),
+              notify: false,
+            );
           } else if (val > 150 && avgPing > 0 && val > (avgPing * 2.2)) {
-            addTimelineEvent(TimelineEvent(
-              type: TimelineEventType.latencySpike,
-              hop: hopNum,
-              title: 'Latency Spike: ${val}ms',
-              description: 'Surged from ${avgPing}ms avg to ${val}ms on Hop $hopNum ($hopName)',
-              value: val,
-            ));
+            addTimelineEvent(
+              TimelineEvent(
+                type: TimelineEventType.latencySpike,
+                hop: hopNum,
+                title: 'Latency Spike: ${val}ms',
+                description: 'Surged from ${avgPing}ms avg to ${val}ms on Hop $hopNum ($hopName)',
+                value: val,
+              ),
+              notify: false,
+            );
           }
 
           if (deepStats[y]['pl'].length > packetsLimit) deepStats[y]['pl'].removeAt(0);
