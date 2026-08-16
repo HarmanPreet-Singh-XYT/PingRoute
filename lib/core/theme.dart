@@ -51,22 +51,22 @@ class AppColors {
   // chart chrome — run through scripts/validate_palette.js rather than
   // hand-picked, so contrast/CVD-safety checks are guaranteed to pass.
   static const light = AppColors(
-    pageBackground: Color(0xffEFEFEA),
+    pageBackground: Color(0xffEEF0F2),
     panelBackground: Color(0xffFFFFFF),
-    panelBackgroundAlt: Color(0xffF7F7F4),
+    panelBackgroundAlt: Color(0xffF5F6F8),
     cardBackground: Color(0xffFFFFFF),
-    borderColor: Color(0xffD5D4CC),
-    dividerColor: Color(0xffDCDBCF),
+    borderColor: Color(0xffD3D6DA),
+    dividerColor: Color(0xffDDE0E3),
     textPrimary: Color(0xff121212),
-    textSecondary: Color(0xff5A5956),
+    textSecondary: Color(0xff5A5C60),
     accent: Color(0xff2A78D6),
     latencyGood: Color(0xff0CA30C),
     latencyWarn: Color(0xfffab219),
     latencyBad: Color(0xffD03B3B),
     chartLine: Color(0xff2A78D6),
     chartLineSecondary: Color(0xff6DA7EC),
-    chartGrid: Color(0xffDCDBCF),
-    chartBorder: Color(0xffC3C2B7),
+    chartGrid: Color(0xffDDE0E3),
+    chartBorder: Color(0xffC0C3C7),
   );
 
   static const dark = AppColors(

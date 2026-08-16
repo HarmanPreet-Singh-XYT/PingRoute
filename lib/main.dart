@@ -383,7 +383,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         return Container(
           key: ValueKey('desktop_flow_body_${flow.id}'),
           color: colors.pageBackground,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: Column(
             children: [
               Expanded(
@@ -483,6 +483,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     AppColors colors,
     AppTypography type, {
     bool insideOuterScroll = false,
+    bool preferStackedLayout = false,
   }) {
     final flowIndex = _flows.indexOf(flow);
     return ListenableBuilder(
@@ -752,7 +753,13 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
               ),
             ),
           // Split Pane Body
-          _buildSplitCardBody(flow, colors, type, insideOuterScroll: insideOuterScroll),
+          _buildSplitCardBody(
+            flow,
+            colors,
+            type,
+            insideOuterScroll: insideOuterScroll,
+            preferStackedLayout: preferStackedLayout,
+          ),
         ],
       ),
     );
@@ -764,18 +771,21 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   /// [insideOuterScroll] is true (the 4-flow grid's compact vertical stack),
   /// this sizes itself to content instead of filling the available height,
   /// and the hop table gives up its own independent scroll — see
-  /// [_verticalPaneStack] for why.
+  /// [_verticalPaneStack] for why. When [preferStackedLayout] is true (the
+  /// 2-flow split, which has no vertical squeeze) the graph always renders
+  /// below the hop table instead of beside it, even at wide widths.
   Widget _buildSplitCardBody(
     FlowSession flow,
     AppColors colors,
     AppTypography type, {
     required bool insideOuterScroll,
+    bool preferStackedLayout = false,
   }) {
     final body = Padding(
       padding: const EdgeInsets.all(8.0),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 900;
+          final isWide = constraints.maxWidth >= 900 && !preferStackedLayout;
           if (isWide && !insideOuterScroll) {
             return LeftData(
               data: flow.tracerouteResult,
@@ -819,6 +829,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
             onOpenInNewTab: (ip) => _addNewFlow(initialIp: ip),
             onToggleStatistics: _toggleStatisticsVisibility,
             insideOuterScroll: insideOuterScroll,
+            preferStackedLayout: preferStackedLayout,
           );
 
           final graph = Container(
@@ -1039,7 +1050,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         Widget buildPane(int slotIndex, bool insideOuterScroll) {
           final flow = _getFlowForSlot(slotIndex);
           return flow != null
-              ? _buildSplitCard(flow, slotIndex, colors, type, insideOuterScroll: insideOuterScroll)
+              ? _buildSplitCard(
+                  flow,
+                  slotIndex,
+                  colors,
+                  type,
+                  insideOuterScroll: insideOuterScroll,
+                  // 2-flow split has no vertical squeeze (unlike the 4-flow
+                  // grid), so the graph reads better stacked below the hop
+                  // table than squeezed to the side even at wide widths.
+                  preferStackedLayout: _viewMode == ViewMode.splitTwo,
+                )
               : _buildEmptySlotCard(slotIndex + 1, colors, type);
         }
 
@@ -1315,10 +1336,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                       children: [
                         // Desktop Top Header: Tab / Split Controls
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                           decoration: BoxDecoration(
                             color: colors.pageBackground,
                             border: Border(

@@ -396,6 +396,7 @@ class _BottomDataState extends State<BottomData> {
     }
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: colors.panelBackground,
         borderRadius: BorderRadius.circular(10),

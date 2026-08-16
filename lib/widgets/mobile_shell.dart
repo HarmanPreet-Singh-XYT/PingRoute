@@ -1,6 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import '../core/ip_geolocation.dart';
 import '../core/theme.dart';
+import '../dialogs/ip_info_dialog.dart';
 import '../dialogs/snapshot_dialog.dart';
 import '../models/flow_session.dart';
 import '../models/snapshot.dart';
@@ -928,6 +930,15 @@ class _HopsTabState extends State<_HopsTab> {
                     onPressed: () {
                       Navigator.of(context).pop();
                       widget.onOpenInNewTab!(ip);
+                    },
+                  ),
+                if (!isPrivateIp(ip))
+                  ListTile(
+                    leading: Icon(FluentIcons.globe, size: 16, color: colors.accent),
+                    title: const Text('IP Info (Location, ISP...)'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      showIpInfoDialog(context, ip, name: name);
                     },
                   ),
               ],

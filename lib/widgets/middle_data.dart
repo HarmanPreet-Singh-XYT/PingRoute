@@ -1,6 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import '../core/ip_geolocation.dart';
 import '../core/theme.dart';
+import '../dialogs/ip_info_dialog.dart';
 import '../models/target_directory.dart';
 import 'graph.dart';
 import 'shared_widgets.dart';
@@ -111,6 +113,7 @@ class LeftData extends StatefulWidget {
     this.onToggleControls,
     this.onReset,
     this.insideOuterScroll = false,
+    this.preferStackedLayout = false,
   });
 
   final List<Map<String, dynamic>>? data;
@@ -139,6 +142,12 @@ class LeftData extends StatefulWidget {
   /// touch scrolling on iPad. Instead the table sizes to its content and the
   /// outer container does all the scrolling.
   final bool insideOuterScroll;
+
+  /// True when the caller already renders the live graph separately below
+  /// this widget (the 2-flow split, which has no vertical squeeze forcing
+  /// the graph beside the table). When true, the internal wide-width
+  /// side-by-side layout is skipped so the graph isn't duplicated.
+  final bool preferStackedLayout;
 
   @override
   State<LeftData> createState() => _LeftDataState();
@@ -285,16 +294,17 @@ class _LeftDataState extends State<LeftData> {
     Widget wrapBody(Widget child) => height == null ? child : Expanded(child: child);
 
     return Container(
-      clipBehavior: Clip.hardEdge,
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(width: 1, color: colors.borderColor),
         color: colors.panelBackground,
       ),
-      child: Column(
-        mainAxisSize: height == null ? MainAxisSize.min : MainAxisSize.max,
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Column(
+          mainAxisSize: height == null ? MainAxisSize.min : MainAxisSize.max,
+          children: [
           _HeaderRow(
             colors: colors,
             type: type,
@@ -362,7 +372,8 @@ class _LeftDataState extends State<LeftData> {
                             ),
                     )
                   : wrapBody(const SizedBox()),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -373,7 +384,7 @@ class _LeftDataState extends State<LeftData> {
     AppTypography type,
   ) {
     return Container(
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: Clip.antiAlias,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -464,7 +475,9 @@ class _LeftDataState extends State<LeftData> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 900 && !widget.insideOuterScroll;
+        final isWide = constraints.maxWidth >= 900 &&
+            !widget.insideOuterScroll &&
+            !widget.preferStackedLayout;
         final columns = constraints.maxWidth < 600 ? _compactColumns : _fullColumns;
         final showStatTiles = widget.showMetricCards && widget.isSuccess && !widget.isLoading;
 
@@ -974,6 +987,15 @@ class _DataRowState extends State<_DataRow> {
                 Navigator.of(context).pop();
               },
             ),
+            if (!isPrivateIp(rawIp))
+              MenuFlyoutItem(
+                leading: const Icon(FluentIcons.globe, size: 14),
+                text: const Text('IP Info (Location, ISP...)'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  showIpInfoDialog(context, rawIp, name: widget.hop['name']?.toString());
+                },
+              ),
             if (widget.onOpenInNewTab != null)
               MenuFlyoutItem(
                 leading: const Icon(FluentIcons.open_in_new_tab, size: 14),

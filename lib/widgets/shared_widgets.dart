@@ -246,17 +246,21 @@ class StatTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: colors.borderColor),
       ),
-      child: Column(
-        children: [
-          for (int i = 0; i < rows.length; i++)
-            _StatTableRowItem(
-              label: rows[i].$1,
-              value: rows[i].$2,
-              colors: colors,
-              type: type,
-              isOdd: i.isOdd,
-            ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < rows.length; i++)
+              _StatTableRowItem(
+                label: rows[i].$1,
+                value: rows[i].$2,
+                colors: colors,
+                type: type,
+                isOdd: i.isOdd,
+              ),
+          ],
+        ),
       ),
     );
   }
