@@ -1,0 +1,61 @@
+name: Build iOS & iPadOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build Configuration (Release or Debug)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+jobs:
+  build-ios:
+    name: Build iOS / iPadOS Application
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build iOS Application (No Codesign)
+        run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build ios --debug --no-codesign
+            APP_PATH="build/ios/iphoneos/Runner.app"
+          else
+            flutter build ios --release --no-codesign
+            APP_PATH="build/ios/iphoneos/Runner.app"
+          fi
+
+          # Package as unsigned IPA (Payload structure) for sideloading/testing
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r "$GITHUB_WORKSPACE/PingRoute-iOS-Unsigned.ipa" Payload/
+          zip -r "$GITHUB_WORKSPACE/PingRoute-iOS-AppBundle.zip" "$APP_PATH"
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-iOS-Unsigned-IPA
+          path: PingRoute-iOS-Unsigned.ipa
+          if-no-files-found: error
+
+      - name: Upload iOS App Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-iOS-AppBundle
+          path: PingRoute-iOS-AppBundle.zip
+          if-no-files-found: error

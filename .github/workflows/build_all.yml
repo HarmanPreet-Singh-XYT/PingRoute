@@ -1,0 +1,193 @@
+name: Build All Platforms
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build Configuration'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+      build_windows:
+        description: 'Build Windows (x64)'
+        required: true
+        type: boolean
+        default: true
+      build_linux:
+        description: 'Build Linux (x64 AppImage & Tarball)'
+        required: true
+        type: boolean
+        default: true
+      build_macos:
+        description: 'Build macOS'
+        required: true
+        type: boolean
+        default: true
+      build_android:
+        description: 'Build Android (APK & AAB)'
+        required: true
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Build iOS / iPadOS (IPA & App Bundle)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-windows:
+    name: Windows (x64)
+    if: inputs.build_windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - shell: pwsh
+        run: .\build_windows.ps1 -Configuration ${{ inputs.configuration }} -Architecture x64 -Msix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Windows-x64-MSIX
+          path: build/windows/x64/runner/${{ inputs.configuration }}/PingRoute.msix
+
+  build-linux:
+    name: Linux (x64)
+    if: inputs.build_linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev file wget
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build linux --debug
+            BUNDLE_PATH="build/linux/x64/debug/bundle"
+          else
+            flutter build linux --release
+            BUNDLE_PATH="build/linux/x64/release/bundle"
+          fi
+          tar -czvf PingRoute-Linux-x64.tar.gz -C "$BUNDLE_PATH" .
+          
+          # Build AppImage
+          mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp -r "$BUNDLE_PATH"/* AppDir/usr/bin/
+          cp linux/packaging/com.harmanita.pingroute.desktop AppDir/
+          cp linux/packaging/com.harmanita.pingroute.desktop AppDir/usr/share/applications/
+          cp logo.png AppDir/pingroute.png
+          cp logo.png AppDir/usr/share/icons/hicolor/256x256/apps/pingroute.png
+          
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/pingroute" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract-and-run AppDir PingRoute-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Linux-x86_64-AppImage
+          path: PingRoute-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Linux-x64-tar-gz
+          path: PingRoute-Linux-x64.tar.gz
+
+  build-macos:
+    name: macOS
+    if: inputs.build_macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build macos --debug
+            cd build/macos/Build/Products/Debug
+          else
+            flutter build macos --release
+            cd build/macos/Build/Products/Release
+          fi
+          zip -r "$GITHUB_WORKSPACE/PingRoute-macOS.zip" PingRoute.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-macOS-App
+          path: PingRoute-macOS.zip
+
+  build-android:
+    name: Android
+    if: inputs.build_android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build apk --debug
+          else
+            flutter build apk --release
+            flutter build appbundle --release
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Android-APK
+          path: build/app/outputs/flutter-apk/*.apk
+      - if: inputs.configuration == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Android-AppBundle
+          path: build/app/outputs/bundle/release/*.aab
+
+  build-ios:
+    name: iOS / iPadOS
+    if: inputs.build_ios
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build ios --debug --no-codesign
+          else
+            flutter build ios --release --no-codesign
+          fi
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r "$GITHUB_WORKSPACE/PingRoute-iOS-Unsigned.ipa" Payload/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-iOS-Unsigned-IPA
+          path: PingRoute-iOS-Unsigned.ipa

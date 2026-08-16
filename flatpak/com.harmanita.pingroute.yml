@@ -1,0 +1,30 @@
+app-id: com.harmanita.pingroute
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.flutter
+command: pingroute
+
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+
+modules:
+  - name: pingroute
+    buildsystem: simple
+    build-commands:
+      - flutter build linux --release
+      - install -Dm755 -t /app/bin/ build/linux/x64/release/bundle/pingroute
+      - cp -r build/linux/x64/release/bundle/lib /app/
+      - cp -r build/linux/x64/release/bundle/data /app/
+      - install -Dm644 linux/packaging/com.harmanita.pingroute.desktop /app/share/applications/com.harmanita.pingroute.desktop
+      - install -Dm644 linux/packaging/com.harmanita.pingroute.metainfo.xml /app/share/metainfo/com.harmanita.pingroute.metainfo.xml
+      - install -Dm644 logo.png /app/share/icons/hicolor/256x256/apps/com.harmanita.pingroute.png
+    sources:
+      - type: git
+        url: https://github.com/HarmanPreet-Singh-XYT/PingRoute.git
+        branch: main

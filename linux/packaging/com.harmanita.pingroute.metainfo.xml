@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.harmanita.pingroute</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>PingRoute</name>
+  <summary>Real-time network traceroute and latency monitor</summary>
+  <description>
+    <p>
+      PingRoute is a cross-platform network diagnostic utility designed to monitor latency, trace network routes, and analyze network hops with interactive visualizations.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.harmanita.pingroute.desktop</launchable>
+  <url type="homepage">https://github.com/HarmanPreet-Singh-XYT/PingRoute</url>
+  <url type="bugtracker">https://github.com/HarmanPreet-Singh-XYT/PingRoute/issues</url>
+  <provides>
+    <binary>pingroute</binary>
+  </provides>
+</component>

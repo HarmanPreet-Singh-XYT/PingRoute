@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=PingRoute
+Comment=Real-time network traceroute and ping diagnostic tool
+Exec=pingroute
+Icon=pingroute
+Terminal=false
+Type=Application
+Categories=Network;Monitor;Utility;
+Keywords=ping;traceroute;network;latency;icmp;
+StartupWMClass=com.harmanita.pingroute

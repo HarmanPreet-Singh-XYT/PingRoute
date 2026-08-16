@@ -1,0 +1,95 @@
+name: Build Linux x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build Configuration (Release or Debug)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+jobs:
+  build-linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev file wget
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Linux Application
+        run: |
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            flutter build linux --debug
+            BUNDLE_PATH="build/linux/x64/debug/bundle"
+          else
+            flutter build linux --release
+            BUNDLE_PATH="build/linux/x64/release/bundle"
+          fi
+          
+          # Compress bundle to standard tar.gz
+          tar -czvf PingRoute-Linux-x64.tar.gz -C "$BUNDLE_PATH" .
+
+      - name: Build AppImage
+        run: |
+          BUNDLE_PATH="build/linux/x64/${{ inputs.configuration == 'Debug' && 'debug' || 'release' }}/bundle"
+          
+          # Prepare AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy application files
+          cp -r "$BUNDLE_PATH"/* AppDir/usr/bin/
+          cp linux/packaging/com.harmanita.pingroute.desktop AppDir/
+          cp linux/packaging/com.harmanita.pingroute.desktop AppDir/usr/share/applications/
+          cp logo.png AppDir/pingroute.png
+          cp logo.png AppDir/usr/share/icons/hicolor/256x256/apps/pingroute.png
+          
+          # AppRun launcher
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/pingroute" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Download appimagetool
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          
+          # Build AppImage
+          ./appimagetool --appimage-extract-and-run AppDir PingRoute-x86_64.AppImage
+
+      - name: Upload Linux Tarball Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Linux-x64-tar-gz
+          path: PingRoute-Linux-x64.tar.gz
+          if-no-files-found: error
+
+      - name: Upload Linux AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingRoute-Linux-x86_64-AppImage
+          path: PingRoute-x86_64.AppImage
+          if-no-files-found: error
