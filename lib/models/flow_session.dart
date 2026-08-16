@@ -136,6 +136,29 @@ class TimelineEvent {
     this.value,
   })  : timestamp = timestamp ?? DateTime.now(),
         timeFormatted = DateFormat('HH:mm:ss').format(timestamp ?? DateTime.now());
+
+  Map<String, dynamic> toJson() => {
+        'timestamp': timestamp.toIso8601String(),
+        'type': type.name,
+        'hop': hop,
+        'title': title,
+        'description': description,
+        'value': value,
+      };
+
+  factory TimelineEvent.fromJson(Map<String, dynamic> json) {
+    return TimelineEvent(
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'] as String)
+          : null,
+      type: TimelineEventType.values.byName(
+          json['type'] as String? ?? TimelineEventType.packetLoss.name),
+      hop: json['hop'] as int? ?? 0,
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      value: json['value'],
+    );
+  }
 }
 
 class FlowSession extends ChangeNotifier {
@@ -178,6 +201,13 @@ class FlowSession extends ChangeNotifier {
 
   bool isStatisticsVisible = false;
   bool _isDisposed = false;
+
+  /// True for a tab opened from a saved [Snapshot] to replay recorded
+  /// telemetry rather than run a live probe. Guards [execTraceroute] and
+  /// [reset] so pressing play/reset on a replay tab can't wipe the loaded
+  /// snapshot data (it would otherwise always fail the `canResume` check
+  /// and fall into the destructive re-trace path).
+  bool isReplay = false;
 
   final List<_HopPinger?> _hopPingers = [];
 
@@ -415,10 +445,17 @@ class FlowSession extends ChangeNotifier {
 
   String? _lastTracedIp;
 
+  /// Fired whenever [stop] transitions this session from running to
+  /// stopped, so callers can auto-save the session's telemetry the moment
+  /// the user pauses/stops a live probe instead of only on a timer.
+  VoidCallback? onStop;
+
   void stop() {
+    final wasRunning = isRunning;
     isRunning = false;
     _disposeHopPingers();
     notifyListeners();
+    if (wasRunning) onStop?.call();
   }
 
   void _disposeHopPingers() {
@@ -439,6 +476,7 @@ class FlowSession extends ChangeNotifier {
   }
 
   void reset() {
+    if (isReplay) return;
     stop();
     isLoading = false;
     success = false;
@@ -456,6 +494,7 @@ class FlowSession extends ChangeNotifier {
   }
 
   Future<void> execTraceroute({VoidCallback? onError, bool forceFresh = false}) async {
+    if (isReplay) return;
     if (isRunning) {
       stop();
       return;

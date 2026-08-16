@@ -17,6 +17,7 @@ class Navbar extends StatelessWidget {
     this.setText,
     this.onExport,
     this.onReset,
+    this.onSaveSnapshot,
     this.hasData = false,
   });
 
@@ -28,6 +29,7 @@ class Navbar extends StatelessWidget {
   final VoidCallback showSettings;
   final VoidCallback? onExport;
   final VoidCallback? onReset;
+  final VoidCallback? onSaveSnapshot;
   final bool hasData;
 
   @override
@@ -63,6 +65,7 @@ class Navbar extends StatelessWidget {
                   showSettings: showSettings,
                   onExport: onExport,
                   onReset: onReset,
+                  onSaveSnapshot: onSaveSnapshot,
                   hasData: hasData,
                 )
               : _WideNavbar(
@@ -76,6 +79,7 @@ class Navbar extends StatelessWidget {
                   showSettings: showSettings,
                   onExport: onExport,
                   onReset: onReset,
+                  onSaveSnapshot: onSaveSnapshot,
                   hasData: hasData,
                   wrap: screenClass == ScreenClass.tablet,
                 ),
@@ -98,6 +102,7 @@ class _WideNavbar extends StatelessWidget {
     required this.wrap,
     this.onExport,
     this.onReset,
+    this.onSaveSnapshot,
     this.hasData = false,
   });
 
@@ -112,6 +117,7 @@ class _WideNavbar extends StatelessWidget {
   final bool wrap;
   final VoidCallback? onExport;
   final VoidCallback? onReset;
+  final VoidCallback? onSaveSnapshot;
   final bool hasData;
 
   @override
@@ -221,6 +227,20 @@ class _WideNavbar extends StatelessWidget {
           )
         : null;
 
+    final saveSnapshotButton = onSaveSnapshot != null
+        ? Tooltip(
+            message: 'Save Snapshot (⌘⇧S)',
+            child: IconButton(
+              icon: Icon(
+                FluentIcons.camera,
+                color: colors.textSecondary,
+                size: 20,
+              ),
+              onPressed: onSaveSnapshot,
+            ),
+          )
+        : null;
+
     final legend = _LatencyLegend(colors: colors, type: type);
     final settingsButton = Tooltip(
       message: 'Settings (⌘,)',
@@ -255,6 +275,7 @@ class _WideNavbar extends StatelessWidget {
             legend,
             directoryButton,
             infoButton,
+            if (saveSnapshotButton != null) saveSnapshotButton,
             if (exportButton != null) exportButton,
             settingsButton,
           ],
@@ -276,6 +297,7 @@ class _MobileNavbar extends StatelessWidget {
     required this.showSettings,
     this.onExport,
     this.onReset,
+    this.onSaveSnapshot,
     this.hasData = false,
   });
 
@@ -289,6 +311,7 @@ class _MobileNavbar extends StatelessWidget {
   final VoidCallback showSettings;
   final VoidCallback? onExport;
   final VoidCallback? onReset;
+  final VoidCallback? onSaveSnapshot;
   final bool hasData;
 
   @override
@@ -396,6 +419,15 @@ class _MobileNavbar extends StatelessWidget {
                   ),
                   onPressed: () => showNetworkInfoDialog(context),
                 ),
+                if (onSaveSnapshot != null)
+                  TouchIconButton(
+                    icon: Icon(
+                      FluentIcons.camera,
+                      color: colors.textSecondary,
+                      size: 18,
+                    ),
+                    onPressed: onSaveSnapshot,
+                  ),
                 if (onExport != null)
                   TouchIconButton(
                     icon: Icon(

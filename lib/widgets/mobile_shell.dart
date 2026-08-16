@@ -1,7 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import '../core/theme.dart';
+import '../dialogs/snapshot_dialog.dart';
 import '../models/flow_session.dart';
+import '../models/snapshot.dart';
 import '../models/target_directory.dart';
 import 'graph.dart';
 import 'navbar.dart';
@@ -27,6 +29,8 @@ class MobileShell extends StatefulWidget {
     this.onToggleStatistics,
     this.onDuplicateFlow,
     this.onCloseOtherFlows,
+    this.onSaveSnapshot,
+    this.onOpenSnapshot,
   });
 
   final List<FlowSession> flows;
@@ -41,6 +45,8 @@ class MobileShell extends StatefulWidget {
   final VoidCallback? onToggleStatistics;
   final ValueChanged<FlowSession>? onDuplicateFlow;
   final ValueChanged<int>? onCloseOtherFlows;
+  final ValueChanged<FlowSession>? onSaveSnapshot;
+  final ValueChanged<Snapshot>? onOpenSnapshot;
 
   @override
   State<MobileShell> createState() => _MobileShellState();
@@ -102,6 +108,15 @@ class _MobileShellState extends State<MobileShell> {
                   onPressed: () {
                     Navigator.of(context).pop();
                     widget.onDuplicateFlow!(flow);
+                  },
+                ),
+              if (widget.onSaveSnapshot != null)
+                ListTile(
+                  leading: Icon(FluentIcons.camera, size: 16, color: colors.accent),
+                  title: Text('Save Snapshot', style: type.body),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    widget.onSaveSnapshot!(flow);
                   },
                 ),
               if (widget.onExport != null)
@@ -202,6 +217,11 @@ class _MobileShellState extends State<MobileShell> {
         isRunning: currentSession.isRunning,
         isLoading: currentSession.isLoading,
         isSuccess: currentSession.success,
+        colors: colors,
+        type: type,
+      ),
+      _SnapshotsTab(
+        onOpenSnapshot: widget.onOpenSnapshot,
         colors: colors,
         type: type,
       ),
@@ -316,6 +336,9 @@ class _MobileShellState extends State<MobileShell> {
             onExport: widget.onExport != null
                 ? () => widget.onExport!(currentSession)
                 : null,
+            onSaveSnapshot: widget.onSaveSnapshot != null
+                ? () => widget.onSaveSnapshot!(currentSession)
+                : null,
             onReset: currentSession.reset,
             hasData: currentSession.dataCollected || currentSession.ipStats.isNotEmpty,
           ),
@@ -354,6 +377,7 @@ class _BottomTabBar extends StatelessWidget {
     (FluentIcons.list, 'Hops'),
     (FluentIcons.line_chart, 'Graph'),
     (FluentIcons.timeline_progress, 'Timeline'),
+    (FluentIcons.history, 'Snapshots'),
   ];
 
   @override
@@ -1453,6 +1477,28 @@ class _GraphTabState extends State<_GraphTab> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SnapshotsTab extends StatelessWidget {
+  const _SnapshotsTab({
+    required this.onOpenSnapshot,
+    required this.colors,
+    required this.type,
+  });
+
+  final ValueChanged<Snapshot>? onOpenSnapshot;
+  final AppColors colors;
+  final AppTypography type;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: SnapshotsListView(
+        onOpenSnapshot: (snapshot) => onOpenSnapshot?.call(snapshot),
       ),
     );
   }

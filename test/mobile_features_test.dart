@@ -36,6 +36,7 @@ void main() {
 
     bool exportCalled = false;
     bool statsCalled = false;
+    FlowSession? savedFlow;
 
     await tester.pumpWidget(
       FluentApp(
@@ -50,11 +51,20 @@ void main() {
             showSettings: () {},
             onExport: (_) => exportCalled = true,
             onToggleStatistics: () => statsCalled = true,
+            onSaveSnapshot: (f) => savedFlow = f,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
+
+    // The mobile Navbar's compact icon row must expose a visible Save
+    // Snapshot button (not just the tab long-press menu).
+    final saveSnapshotButton = find.byIcon(FluentIcons.camera);
+    expect(saveSnapshotButton, findsOneWidget);
+    await tester.tap(saveSnapshotButton);
+    await tester.pumpAndSettle();
+    expect(savedFlow, same(flow));
 
     // Verify all 4 tabs exist
     expect(find.text('Overview'), findsWidgets);

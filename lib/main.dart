@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dart_ping_ios/dart_ping_ios.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
@@ -9,8 +11,11 @@ import 'core/theme.dart';
 import 'dialogs/export_dialog.dart';
 import 'dialogs/network_info_dialog.dart';
 import 'dialogs/settings.dart';
+import 'dialogs/snapshot_dialog.dart';
 import 'dialogs/target_dialog.dart';
 import 'models/flow_session.dart';
+import 'models/snapshot.dart';
+import 'models/snapshot_store.dart';
 import 'widgets/bottom_data.dart';
 import 'widgets/error.dart';
 import 'widgets/graph.dart';
@@ -88,6 +93,11 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   // ScaffoldPage hands out on iOS — see _verticalPaneStack.
   final ScrollController _verticalPaneStackController = ScrollController();
 
+  // Periodically captures a rolling auto-save snapshot for every running,
+  // non-replay flow — see _captureAutoSnapshots.
+  Timer? _autoSnapshotTimer;
+  static const _autoSnapshotInterval = Duration(minutes: 5);
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +115,29 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         );
 
     _addNewFlow(initialIp: '1.1.1.1');
+
+    _autoSnapshotTimer = Timer.periodic(
+      _autoSnapshotInterval,
+      (_) => _captureAutoSnapshots(),
+    );
+  }
+
+  void _captureAutoSnapshots() {
+    for (final flow in _flows) {
+      if (!flow.isRunning || flow.isReplay || !flow.dataCollected) continue;
+      _captureAutoSnapshot(flow);
+    }
+  }
+
+  void _captureAutoSnapshot(FlowSession flow) {
+    if (flow.isReplay || !flow.dataCollected) return;
+    final snapshot = Snapshot.fromFlowSession(
+      flow,
+      name: '${flow.title} (auto)',
+      isAuto: true,
+      id: 'auto_${flow.id}',
+    );
+    SnapshotStore.instance.saveAuto(snapshot);
   }
 
   void _onFlowUpdated() {
@@ -126,10 +159,15 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     return null;
   }
 
-  void _addNewFlow({String initialIp = '1.1.1.1', bool autoStart = false}) {
+  void _addNewFlow({
+    String initialIp = '1.1.1.1',
+    bool autoStart = false,
+    FlowSession? prebuiltFlow,
+  }) {
     setState(() {
-      final newFlow = FlowSession(initialIp: initialIp);
+      final newFlow = prebuiltFlow ?? FlowSession(initialIp: initialIp);
       newFlow.addListener(_onFlowUpdated);
+      newFlow.onStop = () => _captureAutoSnapshot(newFlow);
       _flows.add(newFlow);
       _tabFlyoutControllers.add(FlyoutController());
       _currentIndex = _flows.length - 1;
@@ -215,6 +253,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _autoSnapshotTimer?.cancel();
     for (final flow in _flows) {
       flow.removeListener(_onFlowUpdated);
       flow.dispose();
@@ -256,6 +295,10 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         );
       },
     );
+  }
+
+  void _openSnapshotViewer(Snapshot snapshot) {
+    _addNewFlow(prebuiltFlow: snapshot.toFlowSession());
   }
 
   Widget _buildMiniControlsBar(
@@ -369,6 +412,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                         isRunning: flow.isRunning,
                         showSettings: () => _openFlowSettings(flow),
                         onExport: () => showExportDialog(context, flow),
+                        onSaveSnapshot: () => showSaveSnapshotDialog(context, flow),
                         setText: flow.setText,
                       )
                     : _buildMiniControlsBar(flow, colors, type),
@@ -650,6 +694,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                         initialTarget: flow.ip,
                         onSelectTarget: (target) => flow.setText(target, 'ip'),
                       ),
+                    ),
+                  ),
+                  Tooltip(
+                    message: 'Save Snapshot (⌘⇧S)',
+                    child: IconButton(
+                      icon: Icon(
+                        FluentIcons.camera,
+                        size: 16,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: () => showSaveSnapshotDialog(context, flow),
                     ),
                   ),
                   Tooltip(
@@ -1091,6 +1146,22 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           _openFlowSettings(currentFlow);
         }
       },
+      const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
+          () {
+        if (currentFlow != null) {
+          showSaveSnapshotDialog(context, currentFlow);
+        }
+      },
+      const SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
+          () {
+        if (currentFlow != null) {
+          showSaveSnapshotDialog(context, currentFlow);
+        }
+      },
+      const SingleActivator(LogicalKeyboardKey.keyS, meta: true, alt: true):
+          () => showSnapshotsDialog(context, onOpenSnapshot: _openSnapshotViewer),
+      const SingleActivator(LogicalKeyboardKey.keyS, control: true, alt: true):
+          () => showSnapshotsDialog(context, onOpenSnapshot: _openSnapshotViewer),
     };
 
     if (!AppSettings.instance.hasCompletedOnboarding) {
@@ -1146,6 +1217,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                         }
                       },
                       onExport: (flow) => showExportDialog(context, flow),
+                      onSaveSnapshot: (flow) =>
+                          showSaveSnapshotDialog(context, flow),
+                      onOpenSnapshot: _openSnapshotViewer,
                       onReset: () => currentFlow?.reset(),
                       onOpenInNewTab: (ip) =>
                           _addNewFlow(initialIp: ip, autoStart: true),
@@ -1206,17 +1280,37 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   ),
                                 ],
                               ),
-                              Button(
-                                onPressed: () =>
-                                    _addNewFlow(initialIp: '8.8.8.8'),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(FluentIcons.add, size: 12),
-                                    SizedBox(width: 4),
-                                    Text('New Flow (⌘T)'),
-                                  ],
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Tooltip(
+                                    message: 'Snapshots (⌘⌥S)',
+                                    child: IconButton(
+                                      icon: Icon(
+                                        FluentIcons.history,
+                                        size: 16,
+                                        color: colors.textSecondary,
+                                      ),
+                                      onPressed: () => showSnapshotsDialog(
+                                        context,
+                                        onOpenSnapshot: _openSnapshotViewer,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Button(
+                                    onPressed: () =>
+                                        _addNewFlow(initialIp: '8.8.8.8'),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(FluentIcons.add, size: 12),
+                                        SizedBox(width: 4),
+                                        Text('New Flow (⌘T)'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1313,6 +1407,22 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                                         initialIp: flow.ip,
                                                       );
                                                       Navigator.of(context).pop();
+                                                    },
+                                                  ),
+                                                  MenuFlyoutItem(
+                                                    leading: const Icon(
+                                                      FluentIcons.camera,
+                                                      size: 14,
+                                                    ),
+                                                    text: const Text(
+                                                      'Save Snapshot',
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(context).pop();
+                                                      showSaveSnapshotDialog(
+                                                        context,
+                                                        flow,
+                                                      );
                                                     },
                                                   ),
                                                   MenuFlyoutItem(
