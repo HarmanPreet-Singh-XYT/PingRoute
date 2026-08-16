@@ -1,5 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import '../core/breakpoints.dart';
+import '../core/shortcuts.dart';
 import '../core/theme.dart';
 import '../dialogs/network_info_dialog.dart';
 import '../dialogs/target_dialog.dart';
@@ -126,10 +127,10 @@ class _WideNavbar extends StatelessWidget {
 
     final playButton = Tooltip(
       message: isRunning
-          ? 'Pause Probing (⌘R)'
+          ? 'Pause Probing (${shortcutLabel('R')})'
           : isResumable
-          ? 'Resume Probing (⌘R)'
-          : 'Start Traceroute (⌘R / Enter)',
+          ? 'Resume Probing (${shortcutLabel('R')})'
+          : 'Start Traceroute (${shortcutLabel('R')} / Enter)',
       child: IconButton(
         icon: Icon(
           isRunning ? FluentIcons.circle_pause_solid : FluentIcons.play_solid,
@@ -187,7 +188,7 @@ class _WideNavbar extends StatelessWidget {
     );
 
     final directoryButton = Tooltip(
-      message: 'IP Directory & Saved Targets (⌘D)',
+      message: 'IP Directory & Saved Targets (${shortcutLabel('D')})',
       child: IconButton(
         icon: Icon(
           FluentIcons.contact_list,
@@ -206,7 +207,7 @@ class _WideNavbar extends StatelessWidget {
     );
 
     final infoButton = Tooltip(
-      message: 'Network Diagnostics & System Info (⌘I)',
+      message: 'Network Diagnostics & System Info (${shortcutLabel('I')})',
       child: IconButton(
         icon: Icon(FluentIcons.info, color: colors.textSecondary, size: 21),
         onPressed: () => showNetworkInfoDialog(context),
@@ -229,7 +230,7 @@ class _WideNavbar extends StatelessWidget {
 
     final saveSnapshotButton = onSaveSnapshot != null
         ? Tooltip(
-            message: 'Save Snapshot (⌘⇧S)',
+            message: 'Save Snapshot (${shortcutLabel('S', shift: true)})',
             child: IconButton(
               icon: Icon(
                 FluentIcons.camera,
@@ -243,7 +244,7 @@ class _WideNavbar extends StatelessWidget {
 
     final legend = _LatencyLegend(colors: colors, type: type);
     final settingsButton = Tooltip(
-      message: 'Settings (⌘,)',
+      message: 'Settings (${shortcutLabel(',')})',
       child: IconButton(
         icon: Icon(FluentIcons.settings, color: colors.textSecondary, size: 22),
         onPressed: () => showSettings(),

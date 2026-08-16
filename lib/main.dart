@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'core/breakpoints.dart';
+import 'core/shortcuts.dart';
 import 'core/storage_helper.dart';
 import 'core/theme.dart';
 import 'dialogs/export_dialog.dart';
@@ -687,7 +688,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                   ),
                   const SizedBox(width: 4),
                   Tooltip(
-                    message: 'IP Directory & Saved Targets (⌘D)',
+                    message: 'IP Directory & Saved Targets (${shortcutLabel('D')})',
                     child: IconButton(
                       icon: Icon(
                         FluentIcons.contact_list,
@@ -702,7 +703,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                     ),
                   ),
                   Tooltip(
-                    message: 'Save Snapshot (⌘⇧S)',
+                    message: 'Save Snapshot (${shortcutLabel('S', shift: true)})',
                     child: IconButton(
                       icon: Icon(
                         FluentIcons.camera,
@@ -1385,7 +1386,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Tooltip(
-                                    message: 'Snapshots (⌘⌥S)',
+                                    message: 'Snapshots (${shortcutLabel('S', alt: true)})',
                                     child: IconButton(
                                       icon: Icon(
                                         FluentIcons.history,
@@ -1402,12 +1403,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   Button(
                                     onPressed: () =>
                                         _addNewFlow(initialIp: '8.8.8.8'),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(FluentIcons.add, size: 12),
-                                        SizedBox(width: 4),
-                                        Text('New Flow (⌘T)'),
+                                        const Icon(FluentIcons.add, size: 12),
+                                        const SizedBox(width: 4),
+                                        Text('New Flow (${shortcutLabel('T')})'),
                                       ],
                                     ),
                                   ),

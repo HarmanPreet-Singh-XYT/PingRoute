@@ -152,3 +152,18 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Desktop integration: .desktop launcher entry, AppStream metadata, and the
+# hicolor icon set so the app shows its real logo instead of a generic
+# fallback icon in application menus/taskbars/window switchers.
+install(FILES "packaging/${APPLICATION_ID}.desktop"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications"
+  COMPONENT Runtime)
+install(FILES "packaging/${APPLICATION_ID}.metainfo.xml"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/metainfo"
+  COMPONENT Runtime)
+foreach(icon_size 16 32 48 64 128 256 512)
+  install(FILES "packaging/icons/${icon_size}x${icon_size}/pingroute.png"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${icon_size}x${icon_size}/apps"
+    COMPONENT Runtime)
+endforeach(icon_size)

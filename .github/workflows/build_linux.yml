@@ -62,8 +62,8 @@ jobs:
           cp -r "$BUNDLE_PATH"/* AppDir/usr/bin/
           cp linux/packaging/com.harmanita.pingroute.desktop AppDir/
           cp linux/packaging/com.harmanita.pingroute.desktop AppDir/usr/share/applications/
-          cp logo.png AppDir/pingroute.png
-          cp logo.png AppDir/usr/share/icons/hicolor/256x256/apps/pingroute.png
+          cp linux/packaging/icons/256x256/pingroute.png AppDir/pingroute.png
+          cp linux/packaging/icons/256x256/pingroute.png AppDir/usr/share/icons/hicolor/256x256/apps/pingroute.png
           
           # AppRun launcher
           cat << 'EOF' > AppDir/AppRun

@@ -48,6 +48,11 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1600, 900);
+  // Resolved from the hicolor icon theme (installed to
+  // share/icons/hicolor/*/apps/pingroute.png by CMakeLists.txt) so the
+  // window/taskbar/app-switcher show the real logo instead of GTK's
+  // generic fallback icon.
+  gtk_window_set_icon_name(window, "pingroute");
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
