@@ -1,3 +1,6 @@
+#define _CRT_SECURE_NO_WARNINGS
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
@@ -51,7 +54,7 @@ void resolve_domain(const char* ip, char* domain, size_t domain_size) {
     sa.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &(sa.sin_addr));
 
-    if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), domain, domain_size, NULL, 0, NI_NAMEREQD) != 0) {
+    if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), domain, (DWORD)domain_size, NULL, 0, NI_NAMEREQD) != 0) {
         strncpy(domain, "Unknown", domain_size);
         domain[domain_size - 1] = '\0';
     }
@@ -73,8 +76,10 @@ TracerouteResult get_traceroute_data(const char* destination) {
         return result;
     }
 
-    ipaddr = inet_addr(destination);
-    if (ipaddr == INADDR_NONE) {
+    struct in_addr parsed_addr;
+    if (inet_pton(AF_INET, destination, &parsed_addr) == 1) {
+        ipaddr = parsed_addr.s_addr;
+    } else {
         // If not an IP address, try to resolve domain name
         struct addrinfo hints, *res;
         memset(&hints, 0, sizeof(hints));
@@ -120,8 +125,7 @@ TracerouteResult get_traceroute_data(const char* destination) {
                 PICMP_ECHO_REPLY pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
                 struct in_addr ReplyAddr;
                 ReplyAddr.S_un.S_addr = pEchoReply->Address;
-                strncpy(hop.ip, inet_ntoa(ReplyAddr), sizeof(hop.ip) - 1);
-                hop.ip[sizeof(hop.ip) - 1] = '\0';  // Ensure null-termination
+                inet_ntop(AF_INET, &ReplyAddr, hop.ip, sizeof(hop.ip));
                 hop.ping = pEchoReply->RoundTripTime;
 
                 // Resolve domain name
@@ -234,13 +238,23 @@ long ping(const char *target) {
     // Prepare sockaddr_in
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(target);
+    if (inet_pton(AF_INET, target, &addr.sin_addr) != 1) {
+        struct addrinfo hints, *res;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET;
+        if (getaddrinfo(target, NULL, &hints, &res) == 0) {
+            addr.sin_addr = ((struct sockaddr_in*)(res->ai_addr))->sin_addr;
+            freeaddrinfo(res);
+        } else {
+            addr.sin_addr.s_addr = INADDR_NONE;
+        }
+    }
 
     // Prepare ICMP header
     memset(&icmp_hdr, 0, sizeof(icmp_hdr));
     icmp_hdr.type = ICMP_ECHO;
     icmp_hdr.code = 0;
-    icmp_hdr.id = GetCurrentProcessId();
+    icmp_hdr.id = (unsigned short)GetCurrentProcessId();
     icmp_hdr.sequence = 1;
     icmp_hdr.checksum = checksum(&icmp_hdr, sizeof(icmp_hdr));
 
@@ -266,7 +280,7 @@ long ping(const char *target) {
 
     QueryPerformanceCounter(&end);
 
-    elapsed_time = (end.QuadPart - start.QuadPart) * 1000 / frequency.QuadPart;
+    elapsed_time = (long)((end.QuadPart - start.QuadPart) * 1000 / frequency.QuadPart);
 
     closesocket(sock);
     WSACleanup();
