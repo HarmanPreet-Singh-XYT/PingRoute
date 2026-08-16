@@ -4,7 +4,6 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:PingRoute/core/theme.dart';
 import 'package:PingRoute/dialogs/settings.dart';
-import 'package:PingRoute/main.dart';
 import 'package:PingRoute/widgets/onboarding_screen.dart';
 
 void main() {

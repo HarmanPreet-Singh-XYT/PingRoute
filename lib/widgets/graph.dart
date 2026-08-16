@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'dart:async';
 import '../core/theme.dart';
 
 enum _MetricKey { packetLoss, latency, avgLatency, jitter }
@@ -40,7 +39,6 @@ class Graph extends StatefulWidget {
 }
 
 class _GraphState extends State<Graph> {
-  Timer? _timer;
   final FlyoutController _flyoutController = FlyoutController();
 
   static const Map<_MetricKey, String> _dataKey = {
@@ -64,34 +62,8 @@ class _GraphState extends State<Graph> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
-
-  @override
-  void didUpdateWidget(Graph oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isRunning != widget.isRunning || oldWidget.interval != widget.interval) {
-      _startTimer();
-    }
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    if (widget.isRunning) {
-      _timer = Timer.periodic(Duration(milliseconds: widget.interval.clamp(200, 10000)), (_) {
-        if (mounted) {
-          setState(() {});
-        }
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _flyoutController.dispose();
-    _timer?.cancel();
     super.dispose();
   }
 
@@ -242,7 +214,7 @@ class _GraphState extends State<Graph> {
     final style = TextStyle(fontWeight: FontWeight.w500, fontSize: 10, color: appColors(context).textSecondary);
     final index = value.toInt();
     final text = (index >= 0 && index < times.length) ? times[index] : '';
-    return SideTitleWidget(axisSide: meta.axisSide, child: Text(text, style: style));
+    return SideTitleWidget(meta: meta, child: Text(text, style: style));
   }
 
   Widget _leftTitles(double value, TitleMeta meta, double maxY) {
@@ -326,7 +298,7 @@ class _GraphState extends State<Graph> {
         touchTooltipData: LineTouchTooltipData(
           getTooltipColor: (spot) => colors.cardBackground,
           tooltipBorder: BorderSide(color: colors.borderColor, width: 1),
-          tooltipRoundedRadius: 8,
+          tooltipBorderRadius: BorderRadius.circular(8),
           tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           getTooltipItems: (touchedSpots) {
             return touchedSpots.map((spot) {

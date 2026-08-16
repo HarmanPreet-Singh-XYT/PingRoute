@@ -34,8 +34,6 @@ void main() {
     flow.dataCollected = true;
     flow.success = true;
 
-    bool exportCalled = false;
-    bool statsCalled = false;
     FlowSession? savedFlow;
 
     await tester.pumpWidget(
@@ -49,8 +47,8 @@ void main() {
             onAddFlow: () {},
             onCloseFlow: (_) {},
             showSettings: () {},
-            onExport: (_) => exportCalled = true,
-            onToggleStatistics: () => statsCalled = true,
+            onExport: (_) {},
+            onToggleStatistics: () {},
             onSaveSnapshot: (f) => savedFlow = f,
           ),
         ),

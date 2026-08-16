@@ -20,6 +20,12 @@ class BottomData extends StatefulWidget {
     required this.toggleStatistics,
     this.events = const [],
     this.timelineHistory = const [],
+    this.initialViewMode,
+    this.onViewModeChanged,
+    this.initialSelectedHop,
+    this.onSelectedHopChanged,
+    this.initialDataType,
+    this.onDataTypeChanged,
   });
 
   final List<Map<String, dynamic>> IPStats;
@@ -34,15 +40,23 @@ class BottomData extends StatefulWidget {
   final Function() toggleStatistics;
   final List<TimelineEvent> events;
   final List<List<Map<String, dynamic>>> timelineHistory;
+  final int? initialViewMode;
+  final ValueChanged<int>? onViewModeChanged;
+  final int? initialSelectedHop;
+  final ValueChanged<int>? onSelectedHopChanged;
+  final String? initialDataType;
+  final ValueChanged<String>? onDataTypeChanged;
 
   @override
   State<BottomData> createState() => _BottomDataState();
 }
 
 class _BottomDataState extends State<BottomData> {
-  String dataType = 'pl';
+  late String dataType;
   int? _selectedHop;
-  int _viewMode = 0; // 0 = Hop Inspector, 1 = Timeframe Timeline, 2 = Incident Log
+  late int _viewMode;
+  final ScrollController _hopScrollController = ScrollController();
+  final ScrollController _incidentScrollController = ScrollController();
 
   // Dedicated controllers for the stat/actions panes below. On iOS a vertical
   // SingleChildScrollView with no controller defaults to the ambient
@@ -56,7 +70,31 @@ class _BottomDataState extends State<BottomData> {
   final ScrollController _statTableCompactController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    dataType = widget.initialDataType ?? 'pl';
+    _selectedHop = widget.initialSelectedHop;
+    _viewMode = widget.initialViewMode ?? 0;
+  }
+
+  @override
+  void didUpdateWidget(BottomData oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialViewMode != null && widget.initialViewMode != oldWidget.initialViewMode) {
+      _viewMode = widget.initialViewMode!;
+    }
+    if (widget.initialSelectedHop != null && widget.initialSelectedHop != oldWidget.initialSelectedHop) {
+      _selectedHop = widget.initialSelectedHop;
+    }
+    if (widget.initialDataType != null && widget.initialDataType != oldWidget.initialDataType) {
+      dataType = widget.initialDataType!;
+    }
+  }
+
+  @override
   void dispose() {
+    _hopScrollController.dispose();
+    _incidentScrollController.dispose();
     _statTableController.dispose();
     _actionsController.dispose();
     _statTableCompactController.dispose();
@@ -67,12 +105,21 @@ class _BottomDataState extends State<BottomData> {
     setState(() {
       dataType = type;
     });
+    widget.onDataTypeChanged?.call(type);
   }
 
   void setHop(int hop) {
     setState(() {
       _selectedHop = hop;
     });
+    widget.onSelectedHopChanged?.call(hop);
+  }
+
+  void setViewMode(int mode) {
+    setState(() {
+      _viewMode = mode;
+    });
+    widget.onViewModeChanged?.call(mode);
   }
 
   @override
@@ -94,6 +141,7 @@ class _BottomDataState extends State<BottomData> {
     final selectedDeep = widget.deepStats[safeSelectedHop - 1];
 
     final hopSelectorHorizontal = SingleChildScrollView(
+      key: const PageStorageKey('bottom_hop_selector_horizontal'),
       scrollDirection: Axis.horizontal,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -112,6 +160,8 @@ class _BottomDataState extends State<BottomData> {
     );
 
     final hopSelectorVertical = ListView.builder(
+      key: const PageStorageKey('bottom_hop_selector_vertical'),
+      controller: _hopScrollController,
       primary: false,
       itemCount: widget.deepStats.length,
       itemBuilder: (context, i) {
@@ -181,7 +231,7 @@ class _BottomDataState extends State<BottomData> {
               icon: FluentIcons.table,
               label: 'Hop Inspector',
               isSelected: _viewMode == 0,
-              onTap: () => setState(() => _viewMode = 0),
+              onTap: () => setViewMode(0),
               colors: colors,
               type: type,
             ),
@@ -190,7 +240,7 @@ class _BottomDataState extends State<BottomData> {
               icon: FluentIcons.timeline_progress,
               label: 'Timeframe Timeline',
               isSelected: _viewMode == 1,
-              onTap: () => setState(() => _viewMode = 1),
+              onTap: () => setViewMode(1),
               colors: colors,
               type: type,
             ),
@@ -199,7 +249,7 @@ class _BottomDataState extends State<BottomData> {
               icon: FluentIcons.incident_triangle,
               label: 'Incident Log (${widget.events.length})',
               isSelected: _viewMode == 2,
-              onTap: () => setState(() => _viewMode = 2),
+              onTap: () => setViewMode(2),
               colors: colors,
               type: type,
             ),
@@ -243,6 +293,7 @@ class _BottomDataState extends State<BottomData> {
                                 flex: 4,
                                 child: SingleChildScrollView(
                                   primary: false,
+                                  key: const PageStorageKey('bottom_stat_table_scroll_wide'),
                                   controller: _statTableController,
                                   child: statTable,
                                 ),
@@ -257,6 +308,7 @@ class _BottomDataState extends State<BottomData> {
                                 width: 120,
                                 child: SingleChildScrollView(
                                   primary: false,
+                                  key: const PageStorageKey('bottom_actions_scroll_wide'),
                                   controller: _actionsController,
                                   child: actions,
                                 ),
@@ -282,6 +334,7 @@ class _BottomDataState extends State<BottomData> {
                                     flex: 5,
                                     child: SingleChildScrollView(
                                       primary: false,
+                                      key: const PageStorageKey('bottom_stat_table_scroll_compact'),
                                       controller: _statTableCompactController,
                                       child: statTable,
                                     ),
@@ -349,6 +402,8 @@ class _BottomDataState extends State<BottomData> {
         border: Border.all(color: colors.borderColor),
       ),
       child: ListView.separated(
+        key: const PageStorageKey('bottom_incident_log_list'),
+        controller: _incidentScrollController,
         itemCount: widget.events.length,
         separatorBuilder: (_, __) => const Divider(),
         itemBuilder: (context, index) {
