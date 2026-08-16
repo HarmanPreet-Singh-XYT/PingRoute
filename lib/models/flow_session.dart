@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:intl/intl.dart';
@@ -602,12 +603,36 @@ class FlowSession extends ChangeNotifier {
         tracerouteResult = parsedList;
         dataCollected = true;
         _startHopPingers();
+        _resolveHopNamesAsync();
       } else {
         isRunning = false;
         onError?.call();
       }
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Asynchronously performs reverse DNS resolution for all hop IPs in parallel
+  /// after the traceroute layout is rendered. Updates `ipStats[x]['name']` live
+  /// as hostnames arrive without blocking execution.
+  void _resolveHopNamesAsync() {
+    if (!Platform.isLinux) return;
+    for (int i = 0; i < ipStats.length; i++) {
+      final hopIp = ipStats[i]['ip'] as String? ?? '';
+      if (hopIp.isNotEmpty && isIP(hopIp)) {
+        InternetAddress(hopIp).reverse().timeout(const Duration(seconds: 3)).then((host) {
+          if (_isDisposed) return;
+          if (host.host.isNotEmpty && host.host != hopIp) {
+            ipStats[i]['name'] = host.host;
+            final res = tracerouteResult;
+            if (res != null && i < res.length) {
+              res[i]['name'] = host.host;
+            }
+            notifyListeners();
+          }
+        }).catchError((_) {});
+      }
     }
   }
 

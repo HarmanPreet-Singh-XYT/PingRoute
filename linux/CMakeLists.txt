@@ -125,6 +125,13 @@ install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 install(TARGETS network LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# Install the privileged helper executable alongside the main binary.
+# After installation, packaging scripts (deb postinst, etc.) run:
+#   sudo setcap cap_net_raw+ep ${CMAKE_INSTALL_PREFIX}/pingroute-net
+# Snap/Flatpak handle this automatically via network-control.
+install(TARGETS pingroute-net RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
   install(FILES "${bundled_library}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"

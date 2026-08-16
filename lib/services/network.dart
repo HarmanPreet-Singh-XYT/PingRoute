@@ -18,29 +18,50 @@ class NetworkLib {
 
   bool get isNativeAvailable => _isNativeAvailable;
 
+  /// Absolute path to the pingroute-net helper executable, or null if not found.
+  final String? _helperPath;
+
   static DynamicLibrary _loadLibrary() {
     if (Platform.isIOS) {
-      // On iOS, native C functions are compiled directly into the Runner executable
       return DynamicLibrary.process();
     }
     if (Platform.isAndroid) {
-      // On Android, the NDK CMake builds libnetwork.so into the APK
       return DynamicLibrary.open('libnetwork.so');
     }
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     if (Platform.isWindows) {
       return DynamicLibrary.open(p.join(exeDir, 'network.dll'));
     }
-    if (Platform.isLinux) {
-      return DynamicLibrary.open(p.join(exeDir, 'lib', 'libnetwork.so'));
-    }
     if (Platform.isMacOS) {
       return DynamicLibrary.open(p.join(exeDir, '..', 'Frameworks', 'libnetwork.dylib'));
     }
+    // Linux uses the helper-executable path instead of FFI (see _helperPath).
     return DynamicLibrary.process();
   }
 
-  NetworkLib() {
+  /// Finds the pingroute-net helper binary relative to the running executable.
+  ///
+  /// During `flutter run` (debug) the bundle layout is:
+  ///   build/linux/`<arch>`/debug/bundle/pingroute          ← main exe
+  ///   build/linux/`<arch>`/debug/bundle/pingroute-net      ← helper
+  ///
+  /// After `flutter build linux --release` (install bundle):
+  ///   bundle/pingroute
+  ///   bundle/pingroute-net
+  static String? _findHelper() {
+    if (!Platform.isLinux) return null;
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final candidate = p.join(exeDir, 'pingroute-net');
+    if (File(candidate).existsSync()) return candidate;
+    return null;
+  }
+
+  NetworkLib() : _helperPath = _findHelper() {
+    // On Linux we use the helper subprocess; skip FFI loading entirely.
+    if (Platform.isLinux) {
+      _isNativeAvailable = _helperPath != null;
+      return;
+    }
     try {
       _lib = _loadLibrary();
       getTracerouteArray = _lib!
@@ -54,9 +75,24 @@ class NetworkLib {
   }
 
   Future<List<String>> performTraceroute(String destination) async {
-    if (_isNativeAvailable && getTracerouteArray != null && freeTracerouteArray != null) {
+    final sanitized = _sanitize(destination);
+    if (sanitized.isEmpty) return [];
+
+    // ── Linux: spawn the privileged helper subprocess ──────────────────────
+    // pingroute-net has CAP_NET_RAW set on it (by packaging / one-time setcap).
+    // The main Flutter process itself needs zero privileges.
+    if (Platform.isLinux && _helperPath != null) {
+      final result = await _runHelper(sanitized);
+      if (result.isNotEmpty) return result;
+    }
+
+    // ── Other platforms: call the native shared library via FFI ────────────
+    if (!Platform.isLinux &&
+        _isNativeAvailable &&
+        getTracerouteArray != null &&
+        freeTracerouteArray != null) {
       try {
-        final destPtr = destination.toNativeUtf8();
+        final destPtr = sanitized.toNativeUtf8();
         final hopCountPtr = calloc<Int32>();
 
         final resultPtr = getTracerouteArray!(destPtr, hopCountPtr);
@@ -73,34 +109,161 @@ class NetworkLib {
         calloc.free(hopCountPtr);
         calloc.free(destPtr);
 
-        if (results.isNotEmpty) {
-          return results;
-        }
+        if (results.isNotEmpty) return results;
       } catch (_) {}
     }
 
-    // Fallback traceroute for restricted mobile/sandbox environments
-    return _fallbackTraceroute(destination);
+    // ── Final fallback: system CLI tools (tracepath / traceroute) ──────────
+    // Works without any special privileges. Used when:
+    //   • Linux: helper not found or not yet setcap'd
+    //   • Other platforms: FFI library missing
+    return _cliTraceroute(sanitized);
   }
 
-  Future<List<String>> _fallbackTraceroute(String destination) async {
-    try {
-      final sanitized = destination
-          .trim()
-          .replaceFirst(RegExp(r'^https?:\/\/'), '')
-          .split('/')[0]
-          .split(':')[0];
-      if (sanitized.isEmpty) return [];
+  // ── Helper subprocess (Linux) ──────────────────────────────────────────────
 
-      final addresses = await InternetAddress.lookup(sanitized);
+  Future<List<String>> _runHelper(String destination) async {
+    try {
+      final proc = await Process.run(_helperPath!, [destination], runInShell: false);
+      if (proc.exitCode != 0) return [];
+      final lines = (proc.stdout as String)
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.startsWith('{hop:'))
+          .toList();
+      return lines;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ── CLI fallback (tracepath / traceroute) ──────────────────────────────────
+
+  Future<List<String>> _cliTraceroute(String destination) async {
+    if (!Platform.isLinux && !Platform.isMacOS) {
+      return _dnsOnlyFallback(destination);
+    }
+
+    // Traceroute with UDP probes (-n -q 1 -w 1) completes in ~1s and bypasses
+    // ISP ICMP filtering. tracepath uses ICMP and hangs on filtered networks.
+    const candidates = [
+      ['traceroute', '-q', '1', '-w', '1'],
+      ['tracepath', '-n', '-b'],
+    ];
+
+    for (final cmd in candidates) {
+      try {
+        final proc = await Process.run(
+          cmd[0],
+          [...cmd.sublist(1), destination],
+          runInShell: false,
+        );
+        final hops = _parseCliOutput(proc.stdout as String, cmd[0]);
+        // Only accept result if we got valid responding hops
+        final validHops = hops.where((h) => !h.contains('name:Unknown, ping:-1'));
+        if (validHops.isNotEmpty) return hops;
+      } catch (_) {}
+    }
+
+    return _dnsOnlyFallback(destination);
+  }
+
+  Future<List<String>> _dnsOnlyFallback(String destination) async {
+    try {
+      final addresses = await InternetAddress.lookup(destination);
       if (addresses.isNotEmpty) {
         final ip = addresses.first.address;
         final host = addresses.first.host;
-        return [
-          '{hop:1, ip:$ip, name:$host, ping:-1}',
-        ];
+        return ['{hop:1, ip:$ip, name:$host, ping:-1}'];
       }
     } catch (_) {}
-    return <String>[];
+    return [];
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  static String _sanitize(String destination) => destination
+      .trim()
+      .replaceFirst(RegExp(r'^https?://'), '')
+      .split('/')[0]
+      .split(':')[0];
+
+  /// Parses `tracepath -n -b` or `traceroute -n` stdout into hop strings.
+  List<String> _parseCliOutput(String output, String tool) {
+    final lines = output.split('\n');
+    final results = <String>[];
+    final seenHops = <int>{}; // tracepath probes each hop twice; keep first only.
+
+    // tracepath line:  " 1:  192.168.1.1 (host.name)  3.540ms"
+    // tracepath miss:  " 2:  no reply"
+    // traceroute line: " 1  192.168.1.1   3.540 ms"
+    // traceroute miss: " 2  * * *"
+    final tracepathHop = RegExp(
+        r'^\s*(\d+):\s+(\d+\.\d+\.\d+\.\d+)(?:\s+\(([^)]+)\))?\s+([\d.]+)ms');
+    final tracepathNoReply = RegExp(r'^\s*(\d+):\s+no reply');
+    final tracerouteHop = RegExp(
+        r'^\s*(\d+)\s+([^\s()]+)(?:\s+\(([^)]+)\))?\s+([\d.]+)\s*ms');
+    final tracerouteNoReply = RegExp(r'^\s*(\d+)\s+\*');
+
+    for (final line in lines) {
+      if (line.contains('[LOCALHOST]') ||
+          line.contains('pmtu') ||
+          line.contains('Resume:') ||
+          line.contains('Too many hops')) {
+        continue;
+      }
+
+      RegExpMatch? m;
+      if (tool == 'tracepath') {
+        m = tracepathHop.firstMatch(line);
+        if (m != null) {
+          final hop = int.parse(m.group(1)!);
+          if (seenHops.add(hop)) {
+            final ip = m.group(2)!;
+            final name = m.group(3) ?? ip;
+            final ping = double.parse(m.group(4)!).round();
+            results.add('{hop:$hop, ip:$ip, name:$name, ping:$ping}');
+          }
+          continue;
+        }
+        m = tracepathNoReply.firstMatch(line);
+        if (m != null) {
+          final hop = int.parse(m.group(1)!);
+          if (seenHops.add(hop)) {
+            results.add('{hop:$hop, ip:, name:Unknown, ping:-1}');
+          }
+          continue;
+        }
+      } else {
+        m = tracerouteHop.firstMatch(line);
+        if (m != null) {
+          final hop = int.parse(m.group(1)!);
+          if (seenHops.add(hop)) {
+            final String ip;
+            final String name;
+            if (m.group(3) != null) {
+              ip = m.group(3)!;
+              name = m.group(2)!;
+            } else {
+              ip = m.group(2)!;
+              name = m.group(2)!;
+            }
+            final ping = double.parse(m.group(4)!).round();
+            results.add('{hop:$hop, ip:$ip, name:$name, ping:$ping}');
+          }
+          continue;
+        }
+        m = tracerouteNoReply.firstMatch(line);
+        if (m != null) {
+          final hop = int.parse(m.group(1)!);
+          if (seenHops.add(hop)) {
+            results.add('{hop:$hop, ip:, name:Unknown, ping:-1}');
+          }
+          continue;
+        }
+      }
+    }
+
+    return results;
   }
 }
