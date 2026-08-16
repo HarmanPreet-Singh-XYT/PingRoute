@@ -1480,11 +1480,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Hop Latency Distribution', style: type.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Flexible(
+                        child: Text(
+                          'Hop Latency Distribution',
+                          style: type.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildLegendDot(colors.latencyGood, '<50ms Fast', colors, type),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           _buildLegendDot(colors.latencyWarn, '50-150ms', colors, type),
                         ],
                       ),

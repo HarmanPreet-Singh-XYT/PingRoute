@@ -14,7 +14,7 @@
 #include "network.h"
 
 #define MAX_HOPS 30
-#define TIMEOUT 1 // 1 second timeout
+#define TIMEOUT_SEC 1 // 1 second timeout per hop probe
 #define MAX_DOMAIN_NAME 256
 
 typedef struct {
@@ -48,6 +48,10 @@ static unsigned short checksum(void *b, int len) {
 
 // Resolve domain from IP address
 static void resolve_domain(const char* ip, char* domain, size_t domain_size) {
+    if (ip == NULL || ip[0] == '\0') {
+        domain[0] = '\0';
+        return;
+    }
     struct sockaddr_in sa;
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
@@ -59,7 +63,7 @@ static void resolve_domain(const char* ip, char* domain, size_t domain_size) {
     }
 }
 
-// Locate the ICMP header within a received datagram on Darwin / iOS
+// Locate the ICMP header within a datagram received on a SOCK_DGRAM / iOS socket
 static struct icmp* locate_icmp_header(unsigned char* buf, int recv_len) {
     if (recv_len < (int)sizeof(struct icmp)) {
         return NULL;
@@ -88,13 +92,19 @@ static struct icmp* locate_icmp_header(unsigned char* buf, int recv_len) {
     return NULL;
 }
 
+// Drain any unread packets before sending next probe
+static void drain_socket(int sockfd) {
+    unsigned char dummy[1024];
+    while (recvfrom(sockfd, dummy, sizeof(dummy), MSG_DONTWAIT, NULL, NULL) > 0) {}
+}
+
 static TracerouteResult get_traceroute_data(const char* destination) {
     int sockfd;
     struct sockaddr_in dest_addr;
     struct addrinfo hints, *res;
     int ttl = 1, max_ttl = MAX_HOPS;
     TracerouteResult result = {NULL, 0};
-    result.hops = (HopData*)malloc(MAX_HOPS * sizeof(HopData));
+    result.hops = (HopData*)calloc(MAX_HOPS, sizeof(HopData));
     if (!result.hops) return result;
 
     memset(&hints, 0, sizeof(hints));
@@ -118,14 +128,13 @@ static TracerouteResult get_traceroute_data(const char* destination) {
 
     for (int i = 1; i <= max_ttl; i++) {
         struct icmp icmp_hdr;
-        unsigned char recv_buffer[1024];
-        struct sockaddr_in reply_addr;
-        socklen_t reply_len = sizeof(reply_addr);
         HopData hop = {"", "", -1};
 
         if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
             break;
         }
+
+        drain_socket(sockfd);
 
         memset(&icmp_hdr, 0, sizeof(icmp_hdr));
         icmp_hdr.icmp_type = ICMP_ECHO;
@@ -134,44 +143,79 @@ static TracerouteResult get_traceroute_data(const char* destination) {
         icmp_hdr.icmp_seq = seq++;
         icmp_hdr.icmp_cksum = checksum(&icmp_hdr, sizeof(icmp_hdr));
 
-        struct timespec start_time, end_time;
+        struct timespec start_time, now_time;
         clock_gettime(CLOCK_MONOTONIC, &start_time);
         if (sendto(sockfd, &icmp_hdr, sizeof(icmp_hdr), 0,
                    (struct sockaddr*)&dest_addr, sizeof(dest_addr)) <= 0) {
             break;
         }
 
-        struct timeval timeout = {TIMEOUT, 0};
+        struct timeval timeout = {TIMEOUT_SEC, 0};
         setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
-        int recv_len = (int)recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0,
-                                      (struct sockaddr*)&reply_addr, &reply_len);
-        clock_gettime(CLOCK_MONOTONIC, &end_time);
+        int is_destination_reached = 0;
 
-        if (recv_len > 0) {
-            struct icmp* icmp_reply = locate_icmp_header(recv_buffer, recv_len);
-            int is_destination_reached = 0;
+        while (1) {
+            unsigned char recv_buffer[1024];
+            struct sockaddr_in reply_addr;
+            socklen_t reply_len = sizeof(reply_addr);
 
-            if (icmp_reply != NULL &&
-                (icmp_reply->icmp_type == ICMP_ECHOREPLY ||
-                 icmp_reply->icmp_type == ICMP_TIMXCEED)) {
-                double time_spent = (end_time.tv_sec - start_time.tv_sec) * 1000.0 +
-                                    (end_time.tv_nsec - start_time.tv_nsec) / 1000000.0;
+            int recv_len = (int)recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0,
+                                          (struct sockaddr*)&reply_addr, &reply_len);
+            clock_gettime(CLOCK_MONOTONIC, &now_time);
 
-                strncpy(hop.ip, inet_ntoa(reply_addr.sin_addr), sizeof(hop.ip) - 1);
-                hop.ip[sizeof(hop.ip) - 1] = '\0';
-                hop.ping = (int)time_spent;
+            double elapsed_ms = (now_time.tv_sec - start_time.tv_sec) * 1000.0 +
+                                (now_time.tv_nsec - start_time.tv_nsec) / 1000000.0;
 
-                resolve_domain(hop.ip, hop.domain, sizeof(hop.domain));
-                is_destination_reached = (icmp_reply->icmp_type == ICMP_ECHOREPLY);
-                result.hops[result.count++] = hop;
-            }
-
-            if (is_destination_reached) {
+            if (recv_len <= 0) {
+                // Timeout
                 break;
             }
-        } else {
-            result.hops[result.count++] = hop;
+
+            struct icmp* icmp_reply = locate_icmp_header(recv_buffer, recv_len);
+            if (icmp_reply != NULL) {
+                if (icmp_reply->icmp_type == ICMP_ECHOREPLY) {
+                    // Only accept Echo Reply if it actually came from our target destination IP
+                    if (reply_addr.sin_addr.s_addr == dest_addr.sin_addr.s_addr) {
+                        strncpy(hop.ip, inet_ntoa(reply_addr.sin_addr), sizeof(hop.ip) - 1);
+                        hop.ip[sizeof(hop.ip) - 1] = '\0';
+                        hop.ping = (int)elapsed_ms;
+                        resolve_domain(hop.ip, hop.domain, sizeof(hop.domain));
+                        is_destination_reached = 1;
+                        break;
+                    }
+                } else if (icmp_reply->icmp_type == ICMP_TIMXCEED || icmp_reply->icmp_type == ICMP_UNREACH) {
+                    unsigned char* payload = (unsigned char*)icmp_reply + 8;
+                    int remaining = recv_len - (int)(payload - recv_buffer);
+                    int matches = 1;
+                    if (remaining >= (int)sizeof(struct ip)) {
+                        struct ip* orig_ip = (struct ip*)payload;
+                        if (orig_ip->ip_dst.s_addr != dest_addr.sin_addr.s_addr) {
+                            matches = 0;
+                        }
+                    }
+                    if (matches) {
+                        strncpy(hop.ip, inet_ntoa(reply_addr.sin_addr), sizeof(hop.ip) - 1);
+                        hop.ip[sizeof(hop.ip) - 1] = '\0';
+                        hop.ping = (int)elapsed_ms;
+                        resolve_domain(hop.ip, hop.domain, sizeof(hop.domain));
+                        if (icmp_reply->icmp_type == ICMP_UNREACH) {
+                            is_destination_reached = 1;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (elapsed_ms >= (TIMEOUT_SEC * 1000.0)) {
+                break;
+            }
+        }
+
+        result.hops[result.count++] = hop;
+
+        if (is_destination_reached) {
+            break;
         }
 
         ttl++;
