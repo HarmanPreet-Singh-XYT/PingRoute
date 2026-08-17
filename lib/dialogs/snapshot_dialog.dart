@@ -56,9 +56,23 @@ class _SaveSnapshotDialogContentState
     setState(() => _isSaving = true);
 
     final snapshot = Snapshot.fromFlowSession(widget.flow, name: name);
-    await SnapshotStore.instance.save(snapshot);
+    final saved = await SnapshotStore.instance.save(snapshot);
 
     if (!mounted) return;
+
+    if (!saved) {
+      setState(() => _isSaving = false);
+      displayInfoBar(
+        context,
+        builder: (context, close) => InfoBar(
+          title: const Text('Save Failed'),
+          content: Text('"$name" could not be saved to disk.'),
+          severity: InfoBarSeverity.error,
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).pop();
     displayInfoBar(
       context,

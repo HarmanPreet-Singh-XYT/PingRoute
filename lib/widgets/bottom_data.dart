@@ -135,8 +135,21 @@ class _BottomDataState extends State<BottomData> {
       );
     }
 
-    final defaultHop = widget.IPStats.isNotEmpty ? widget.IPStats.length : 1;
-    final safeSelectedHop = (_selectedHop ?? defaultHop).clamp(1, widget.IPStats.isNotEmpty ? widget.IPStats.length : 1);
+    // IPStats/deepStats can transiently differ in length while FlowSession
+    // is mid-reset (each list is cleared in a separate statement), so clamp
+    // against the shorter of the two before indexing either.
+    final hopCount = widget.IPStats.length < widget.deepStats.length
+        ? widget.IPStats.length
+        : widget.deepStats.length;
+    if (hopCount == 0) {
+      return Center(
+        child: widget.isLoading
+            ? const ProgressRing()
+            : Text('No data available', style: type.title),
+      );
+    }
+    final defaultHop = hopCount;
+    final safeSelectedHop = (_selectedHop ?? defaultHop).clamp(1, hopCount);
     final selectedStat = widget.IPStats[safeSelectedHop - 1];
     final selectedDeep = widget.deepStats[safeSelectedHop - 1];
 
@@ -177,22 +190,17 @@ class _BottomDataState extends State<BottomData> {
       },
     );
 
-    final String jitterVal = (selectedDeep['jitter'] as List).isNotEmpty ? '${selectedDeep['jitter'].last['value']}ms' : '-';
-    final String latencyVal = (selectedDeep['pings'] as List).isNotEmpty && selectedDeep['pings'].last['value'] != -1 ? '${selectedDeep['pings'].last['value']}ms' : '-';
-    final String minVal = selectedStat['min'] != -1 ? '${selectedStat['min']}ms' : '-';
-    final String maxVal = selectedStat['max'] != -1 ? '${selectedStat['max']}ms' : '-';
-    final String plVal = (selectedDeep['pl'] as List).isNotEmpty ? '${selectedDeep['pl'].last['value']}%' : '0%';
-    final String avgVal = selectedStat['avg'] != -1 ? '${selectedStat['avg']}ms' : '-';
+    final metrics = hopMetricStrings(selectedStat, selectedDeep);
 
     final statTable = StatTable(colors: colors, type: type, rows: [
-      ('Jitter', jitterVal),
-      ('Latency', latencyVal),
-      ('Minimum', minVal),
+      ('Jitter', metrics.jitter),
+      ('Latency', metrics.latency),
+      ('Minimum', metrics.min),
       ('IP Address', '${selectedStat['ip']}'),
-      ('Maximum', maxVal),
-      ('Packet Loss', plVal),
+      ('Maximum', metrics.max),
+      ('Packet Loss', metrics.packetLoss),
       ('Domain Name', '${selectedStat['name']}'),
-      ('Average Latency', avgVal),
+      ('Average Latency', metrics.avg),
       ('Packets Sent / Received', '${selectedStat['sentPackets']}/${selectedStat['receivedPackets']}'),
       ('Total Packets', '${widget.totalPackets}'),
     ]);
@@ -352,10 +360,10 @@ class _BottomDataState extends State<BottomData> {
                                           runSpacing: 4,
                                           alignment: WrapAlignment.center,
                                           children: [
-                                            _GraphPill(label: 'Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                                            _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                                            _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                                            _GraphPill(label: 'Avg', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                                            GraphPill(label: 'Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type, compact: true),
+                                            GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type, compact: true),
+                                            GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type, compact: true),
+                                            GraphPill(label: 'Avg', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type, compact: true),
                                           ],
                                         ),
                                       ],
@@ -539,48 +547,4 @@ class _BottomTabPill extends StatelessWidget {
   }
 }
 
-class _GraphPill extends StatelessWidget {
-  const _GraphPill({
-    required this.label,
-    required this.value,
-    required this.current,
-    required this.onSelect,
-    required this.colors,
-    required this.type,
-  });
-
-  final String label;
-  final String value;
-  final String current;
-  final void Function(String) onSelect;
-  final AppColors colors;
-  final AppTypography type;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = current == value;
-    return GestureDetector(
-      onTap: () => onSelect(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.accent.withValues(alpha: 0.2) : colors.panelBackground,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isSelected ? colors.accent : colors.borderColor,
-            width: isSelected ? 1.2 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: type.caption.copyWith(
-            color: isSelected ? colors.accent : colors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 11,
-          ),
-        ),
-      ),
-    );
-  }
-}
 

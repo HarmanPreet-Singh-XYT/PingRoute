@@ -462,15 +462,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Appearance & Scaling
-                Text('Appearance & Scaling', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
+                _SettingsSection(
+                  title: 'Appearance & Scaling',
+                  colors: colors,
+                  type: type,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -562,18 +557,12 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // Advanced Network Probing Options
-                Text('Network Probing Options', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
+                _SettingsSection(
+                  title: 'Network Probing Options',
+                  colors: colors,
+                  type: type,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -703,18 +692,12 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // Flow View & Layout Customization
-                Text('Flow View & Layout Customization', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
+                _SettingsSection(
+                  title: 'Flow View & Layout Customization',
+                  colors: colors,
+                  type: type,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -830,131 +813,91 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // Active Flow Tab Settings
-                Text('Active Flow Tab', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
+                _SettingsSection(
+                  title: 'Active Flow Tab',
+                  colors: colors,
+                  type: type,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Graph refresh interval', style: type.bodyStrong),
-                              Text('How often the live graph updates (ms)', style: type.caption),
-                            ],
+                      _SettingsRow(
+                        label: 'Graph refresh interval',
+                        subtitle: 'How often the live graph updates (ms)',
+                        type: type,
+                        control: SizedBox(
+                          width: 120,
+                          child: NumberBox<int>(
+                            value: _graphInterval,
+                            mode: SpinButtonPlacementMode.inline,
+                            min: 100,
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _graphInterval = value);
+                                widget.changeSettingParams('$value', 'graphInterval');
+                              }
+                            },
                           ),
-                          SizedBox(
-                            width: 120,
-                            child: NumberBox<int>(
-                              value: _graphInterval,
-                              mode: SpinButtonPlacementMode.inline,
-                              min: 100,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _graphInterval = value);
-                                  widget.changeSettingParams('$value', 'graphInterval');
-                                }
-                              },
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      const Divider(),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Rolling packet limit', style: type.bodyStrong),
-                              Text('Points preserved in rolling history', style: type.caption),
-                            ],
+                      _SettingsRow(
+                        label: 'Rolling packet limit',
+                        subtitle: 'Points preserved in rolling history',
+                        type: type,
+                        trailingDivider: false,
+                        control: SizedBox(
+                          width: 120,
+                          child: NumberBox<int>(
+                            value: _packetsLimit,
+                            mode: SpinButtonPlacementMode.inline,
+                            min: 16,
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _packetsLimit = value);
+                                widget.changeSettingParams('$value', 'packetsLimit');
+                              }
+                            },
                           ),
-                          SizedBox(
-                            width: 120,
-                            child: NumberBox<int>(
-                              value: _packetsLimit,
-                              mode: SpinButtonPlacementMode.inline,
-                              min: 16,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _packetsLimit = value);
-                                  widget.changeSettingParams('$value', 'packetsLimit');
-                                }
-                              },
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // History & Data Section
-                Text('History & Data', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Recent IP Search History', style: type.bodyStrong),
-                          Text('Clear the last 5 auto-suggested IPs', style: type.caption),
-                        ],
-                      ),
-                      Button(
-                        onPressed: () {
-                          TargetDirectory.instance.clearRecent();
-                          displayInfoBar(
-                            context,
-                            duration: const Duration(seconds: 1),
-                            builder: (context, close) => const InfoBar(
-                              title: Text('Cleared'),
-                              content: Text('Recent search history has been cleared.'),
-                              severity: InfoBarSeverity.info,
-                            ),
-                          );
-                        },
-                        child: const Text('Clear History'),
-                      ),
-                    ],
+                _SettingsSection(
+                  title: 'History & Data',
+                  colors: colors,
+                  type: type,
+                  child: _SettingsRow(
+                    label: 'Recent IP Search History',
+                    subtitle: 'Clear the last 5 auto-suggested IPs',
+                    type: type,
+                    trailingDivider: false,
+                    control: Button(
+                      onPressed: () {
+                        TargetDirectory.instance.clearRecent();
+                        displayInfoBar(
+                          context,
+                          duration: const Duration(seconds: 1),
+                          builder: (context, close) => const InfoBar(
+                            title: Text('Cleared'),
+                            content: Text('Recent search history has been cleared.'),
+                            severity: InfoBarSeverity.info,
+                          ),
+                        );
+                      },
+                      child: const Text('Clear History'),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // About, GitHub & Contact Section
-                Text('About & Community', style: type.subtitle),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.panelBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderColor),
-                  ),
+                _SettingsSection(
+                  title: 'About & Community',
+                  colors: colors,
+                  type: type,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1057,6 +1000,88 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           ],
         );
       },
+    );
+  }
+}
+
+/// Titled card wrapping a settings section's controls in the shared
+/// panelBackground/border/radius=8 chrome repeated across every section.
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.colors,
+    required this.type,
+    required this.child,
+  });
+
+  final String title;
+  final AppColors colors;
+  final AppTypography type;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: type.subtitle),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colors.panelBackground,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.borderColor),
+          ),
+          child: child,
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+/// A single "label + subtitle on the left, one control on the right" row
+/// used throughout the settings sections, optionally followed by a divider
+/// so a run of these can be placed directly in a Column.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.label,
+    required this.subtitle,
+    required this.control,
+    required this.type,
+    this.trailingDivider = true,
+  });
+
+  final String label;
+  final String subtitle;
+  final Widget control;
+  final AppTypography type;
+  final bool trailingDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: type.bodyStrong),
+            Text(subtitle, style: type.caption),
+          ],
+        ),
+        control,
+      ],
+    );
+    if (!trailingDivider) return row;
+    return Column(
+      children: [
+        row,
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

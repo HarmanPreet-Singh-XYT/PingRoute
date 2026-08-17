@@ -358,7 +358,9 @@ class _LeftDataState extends State<LeftData> {
                               itemBuilder: (context, index) {
                                 final originalIndex = displayIndices[index];
                                 final hop = widget.data![originalIndex];
-                                final stat = widget.IPStats[originalIndex];
+                                final stat = originalIndex < widget.IPStats.length
+                                    ? widget.IPStats[originalIndex]
+                                    : <String, dynamic>{};
                                 return _DataRow(
                                   hop: hop,
                                   stat: stat,
@@ -401,10 +403,10 @@ class _LeftDataState extends State<LeftData> {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      _GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                      _GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                      _GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
-                      _GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      GraphPill(label: 'Packet Loss', value: 'pl', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      GraphPill(label: 'Latency', value: 'lt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      GraphPill(label: 'Jitter', value: 'jt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
+                      GraphPill(label: 'Avg Latency', value: 'alt', current: dataType, onSelect: setGraphType, colors: colors, type: type),
                     ],
                   ),
                 ),
@@ -525,51 +527,6 @@ class _LeftDataState extends State<LeftData> {
           ],
         );
       },
-    );
-  }
-}
-
-class _GraphPill extends StatelessWidget {
-  const _GraphPill({
-    required this.label,
-    required this.value,
-    required this.current,
-    required this.onSelect,
-    required this.colors,
-    required this.type,
-  });
-
-  final String label;
-  final String value;
-  final String current;
-  final void Function(String) onSelect;
-  final AppColors colors;
-  final AppTypography type;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = current == value;
-    return GestureDetector(
-      onTap: () => onSelect(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.accent.withValues(alpha: 0.18) : colors.panelBackgroundAlt,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isSelected ? colors.accent : colors.borderColor,
-            width: isSelected ? 1.2 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: type.caption.copyWith(
-            color: isSelected ? colors.accent : colors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 11,
-          ),
-        ),
-      ),
     );
   }
 }

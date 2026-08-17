@@ -70,8 +70,17 @@ void main() {
     await tester.tap(find.text('2-Flow Split'));
     await tester.pumpAndSettle();
 
-    // Slot 1 and Slot 2 dropdown selectors exist
+    // Only Slot 1 is auto-populated; Slot 2 starts genuinely unassigned
+    // (empty slots must never silently alias another flow by list position).
     expect(find.textContaining('Slot 1:'), findsOneWidget);
+    expect(find.text('Slot 2 (Unassigned)'), findsOneWidget);
+
+    // Assign Tab 2 into Slot 2 via its "Select Open Tab" dropdown.
+    await tester.tap(find.text('Select Open Tab'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Tab 2:').last);
+    await tester.pumpAndSettle();
+
     expect(find.textContaining('Slot 2:'), findsOneWidget);
 
     // Tap on Slot 1 DropDownButton to choose Tab 6
@@ -84,6 +93,56 @@ void main() {
 
     // Verify Slot 1 now displays Tab 6
     expect(find.textContaining('Slot 1: Tab 6'), findsOneWidget);
+  });
+
+  testWidgets('4-Flow Grid: filling slot 4 then slot 2 does not alias flows across empty slots', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const PingRouteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('4-Flow Grid'));
+    await tester.pumpAndSettle();
+
+    // Only Slot 1 is auto-populated; slots 2-4 start genuinely unassigned.
+    expect(find.text('Slot 2 (Unassigned)'), findsOneWidget);
+    expect(find.text('Slot 3 (Unassigned)'), findsOneWidget);
+    expect(find.text('Slot 4 (Unassigned)'), findsOneWidget);
+
+    // Create a brand new flow directly in Slot 4, leaving Slot 2 and 3 empty.
+    final slot4NewFlow = find.descendant(
+      of: find.ancestor(
+        of: find.text('Slot 4 (Unassigned)'),
+        matching: find.byType(Container),
+      ).first,
+      matching: find.text('New Flow'),
+    );
+    await tester.tap(slot4NewFlow);
+    await tester.pumpAndSettle();
+
+    // Slot 2 must still show as unassigned, not silently alias Slot 4's flow.
+    expect(find.text('Slot 2 (Unassigned)'), findsOneWidget);
+    expect(find.text('Slot 3 (Unassigned)'), findsOneWidget);
+    expect(find.textContaining('Slot 4:'), findsOneWidget);
+
+    // Now create a new flow directly in Slot 2.
+    final slot2NewFlow = find.descendant(
+      of: find.ancestor(
+        of: find.text('Slot 2 (Unassigned)'),
+        matching: find.byType(Container),
+      ).first,
+      matching: find.text('New Flow'),
+    );
+    await tester.tap(slot2NewFlow);
+    await tester.pumpAndSettle();
+
+    // Slot 2 and Slot 4 must reference distinct flows (different tab numbers).
+    expect(find.textContaining('Slot 2: Tab 3'), findsOneWidget);
+    expect(find.textContaining('Slot 4: Tab 2'), findsOneWidget);
+    // Slot 3 remains untouched and empty.
+    expect(find.text('Slot 3 (Unassigned)'), findsOneWidget);
   });
 
   testWidgets('4-Flow Grid at iPad-compact width scrolls without layout errors', (WidgetTester tester) async {

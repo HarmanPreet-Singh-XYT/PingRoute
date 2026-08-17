@@ -209,6 +209,8 @@ class FlowSession extends ChangeNotifier {
   bool isStatisticsVisible = false;
   bool _isDisposed = false;
 
+  bool get isDisposed => _isDisposed;
+
   /// True for a tab opened from a saved [Snapshot] to replay recorded
   /// telemetry rather than run a live probe. Guards [execTraceroute] and
   /// [reset] so pressing play/reset on a replay tab can't wipe the loaded

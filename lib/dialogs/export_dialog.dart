@@ -23,8 +23,24 @@ class _ExportDialogContent extends StatefulWidget {
 class _ExportDialogContentState extends State<_ExportDialogContent> {
   int _selectedTabIndex = 0;
 
-  void _copy(String text, String formatName) {
-    Clipboard.setData(ClipboardData(text: text));
+  Future<void> _copy(String text, String formatName) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+    } catch (_) {
+      if (!mounted) return;
+      displayInfoBar(
+        context,
+        duration: const Duration(seconds: 3),
+        builder: (context, close) => InfoBar(
+          title: const Text('Copy Failed'),
+          content: Text('Could not copy $formatName to the clipboard.'),
+          severity: InfoBarSeverity.error,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     displayInfoBar(
       context,
       duration: const Duration(seconds: 2),

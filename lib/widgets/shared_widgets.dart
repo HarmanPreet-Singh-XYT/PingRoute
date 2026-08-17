@@ -2,6 +2,36 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import '../core/theme.dart';
 
+/// Formats the six headline metrics (jitter, latency, min, max, packet
+/// loss, average) shown for a single hop, reading its latest values from
+/// that hop's entries in `ipStats`/`deepStats`.
+({
+  String jitter,
+  String latency,
+  String min,
+  String max,
+  String packetLoss,
+  String avg,
+}) hopMetricStrings(
+  Map<String, dynamic> ipStat,
+  Map<String, dynamic> deepStat,
+) {
+  final jitterList = deepStat['jitter'] as List;
+  final pingsList = deepStat['pings'] as List;
+  final plList = deepStat['pl'] as List;
+
+  return (
+    jitter: jitterList.isNotEmpty ? '${jitterList.last['value']}ms' : '-',
+    latency: pingsList.isNotEmpty && pingsList.last['value'] != -1
+        ? '${pingsList.last['value']}ms'
+        : '-',
+    min: ipStat['min'] != -1 ? '${ipStat['min']}ms' : '-',
+    max: ipStat['max'] != -1 ? '${ipStat['max']}ms' : '-',
+    packetLoss: plList.isNotEmpty ? '${plList.last['value']}%' : '0%',
+    avg: ipStat['avg'] != -1 ? '${ipStat['avg']}ms' : '-',
+  );
+}
+
 /// [IconButton] padded to at least a 44x44 hit area regardless of icon size,
 /// meeting the Apple/Material minimum touch target. Fluent's default icon
 /// button padding (8px/side) leaves small mobile icons (16-18px) well under
@@ -435,7 +465,7 @@ class GraphTypePills extends StatelessWidget {
       runSpacing: 4,
       children: [
         for (final option in options)
-          _GraphPill(
+          GraphPill(
             label: option.$1,
             value: option.$2,
             current: dataType,
@@ -448,14 +478,21 @@ class GraphTypePills extends StatelessWidget {
   }
 }
 
-class _GraphPill extends StatelessWidget {
-  const _GraphPill({
+/// Rounded selectable pill for choosing the active graph metric (Packet
+/// Loss / Latency / Jitter / Avg Latency). [compact] tightens padding and
+/// selection contrast for use in space-constrained bars (e.g. BottomData's
+/// mobile metric switcher) versus the default sizing used alongside a
+/// full-size standalone chart.
+class GraphPill extends StatelessWidget {
+  const GraphPill({
+    super.key,
     required this.label,
     required this.value,
     required this.current,
     required this.onSelect,
     required this.colors,
     required this.type,
+    this.compact = false,
   });
 
   final String label;
@@ -464,6 +501,7 @@ class _GraphPill extends StatelessWidget {
   final void Function(String) onSelect;
   final AppColors colors;
   final AppTypography type;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -471,12 +509,15 @@ class _GraphPill extends StatelessWidget {
     return GestureDetector(
       onTap: () => onSelect(value),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 10,
+          vertical: compact ? 3 : 4,
+        ),
         decoration: BoxDecoration(
           color: isSelected
-              ? colors.accent.withValues(alpha: 0.18)
-              : colors.panelBackgroundAlt,
-          borderRadius: BorderRadius.circular(6),
+              ? colors.accent.withValues(alpha: compact ? 0.2 : 0.18)
+              : (compact ? colors.panelBackground : colors.panelBackgroundAlt),
+          borderRadius: BorderRadius.circular(compact ? 4 : 6),
           border: Border.all(
             color: isSelected ? colors.accent : colors.borderColor,
             width: isSelected ? 1.2 : 1,

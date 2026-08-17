@@ -104,7 +104,10 @@ class IpGeoInfo {
 class IpGeoService {
   IpGeoService._();
 
-  static final Map<String, IpGeoInfo> _cache = {};
+  static const _cacheTtl = Duration(hours: 1);
+  static const _maxCacheEntries = 500;
+
+  static final Map<String, (IpGeoInfo, DateTime)> _cache = {};
 
   static Future<IpGeoInfo> lookup(String ip, {bool forceRefresh = false}) async {
     if (isPrivateIp(ip)) {
@@ -113,7 +116,9 @@ class IpGeoService {
 
     if (!forceRefresh) {
       final cached = _cache[ip];
-      if (cached != null) return cached;
+      if (cached != null && DateTime.now().difference(cached.$2) < _cacheTtl) {
+        return cached.$1;
+      }
     }
 
     final client = HttpClient();
@@ -155,7 +160,10 @@ class IpGeoService {
         timezone: json['timezone']?.toString() ?? '',
         anycast: json['anycast'] == true,
       );
-      _cache[ip] = info;
+      if (_cache.length >= _maxCacheEntries && !_cache.containsKey(ip)) {
+        _cache.remove(_cache.keys.first);
+      }
+      _cache[ip] = (info, DateTime.now());
       return info;
     } on IpGeoLookupException {
       rethrow;

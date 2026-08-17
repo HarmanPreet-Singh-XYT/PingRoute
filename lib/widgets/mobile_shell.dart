@@ -1386,26 +1386,7 @@ class _GraphTabState extends State<_GraphTab> {
     final selectedStat = ipStats[hop - 1];
     final selectedDeep = deepStats[hop - 1];
 
-    final String jitterVal = (selectedDeep['jitter'] as List).isNotEmpty
-        ? '${selectedDeep['jitter'].last['value']}ms'
-        : '-';
-    final String latencyVal =
-        (selectedDeep['pings'] as List).isNotEmpty &&
-            selectedDeep['pings'].last['value'] != -1
-        ? '${selectedDeep['pings'].last['value']}ms'
-        : '-';
-    final String minVal = selectedStat['min'] != -1
-        ? '${selectedStat['min']}ms'
-        : '-';
-    final String maxVal = selectedStat['max'] != -1
-        ? '${selectedStat['max']}ms'
-        : '-';
-    final String plVal = (selectedDeep['pl'] as List).isNotEmpty
-        ? '${selectedDeep['pl'].last['value']}%'
-        : '0%';
-    final String avgVal = selectedStat['avg'] != -1
-        ? '${selectedStat['avg']}ms'
-        : '-';
+    final metrics = hopMetricStrings(selectedStat, selectedDeep);
 
     return SingleChildScrollView(
       primary: false,
@@ -1470,14 +1451,14 @@ class _GraphTabState extends State<_GraphTab> {
             colors: colors,
             type: type,
             rows: [
-              ('Jitter', jitterVal),
-              ('Latency', latencyVal),
-              ('Minimum', minVal),
+              ('Jitter', metrics.jitter),
+              ('Latency', metrics.latency),
+              ('Minimum', metrics.min),
               ('IP Address', '${selectedStat['ip']}'),
-              ('Maximum', maxVal),
-              ('Packet Loss', plVal),
+              ('Maximum', metrics.max),
+              ('Packet Loss', metrics.packetLoss),
               ('Domain Name', '${selectedStat['name']}'),
-              ('Average Latency', avgVal),
+              ('Average Latency', metrics.avg),
               (
                 'Packets Sent / Received',
                 '${selectedStat['sentPackets']}/${selectedStat['receivedPackets']}',

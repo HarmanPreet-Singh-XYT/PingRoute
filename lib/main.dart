@@ -75,7 +75,12 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   final List<FlowSession> _flows = [];
   final List<FlyoutController> _tabFlyoutControllers = [];
-  final List<String?> _paneFlowIds = [null, null, null, null];
+  final List<String?> _paneFlowIds = [
+    '__empty__',
+    '__empty__',
+    '__empty__',
+    '__empty__',
+  ];
   int _currentIndex = 0;
   ViewMode _viewMode = ViewMode.tabs;
 
@@ -114,6 +119,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
         );
 
     _addNewFlow(initialIp: '1.1.1.1');
+    _paneFlowIds[0] = _flows.last.id;
 
     _autoSnapshotTimer = Timer.periodic(
       _autoSnapshotInterval,
@@ -140,16 +146,10 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   }
 
   FlowSession? _getFlowForSlot(int slotIndex) {
-    if (slotIndex < _paneFlowIds.length && _paneFlowIds[slotIndex] != null) {
-      final id = _paneFlowIds[slotIndex]!;
-      if (id == '__empty__') return null;
-      final match = _flows.where((f) => f.id == id).firstOrNull;
-      if (match != null) return match;
-    }
-    if (slotIndex < _flows.length) {
-      return _flows[slotIndex];
-    }
-    return null;
+    if (slotIndex >= _paneFlowIds.length) return null;
+    final id = _paneFlowIds[slotIndex];
+    if (id == null || id == '__empty__') return null;
+    return _flows.where((f) => f.id == id).firstOrNull;
   }
 
   void _addNewFlow({
@@ -185,7 +185,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
 
       for (int i = 0; i < _paneFlowIds.length; i++) {
         if (_paneFlowIds[i] == removed.id) {
-          _paneFlowIds[i] = null;
+          _paneFlowIds[i] = '__empty__';
         }
       }
 
@@ -214,7 +214,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       _tabFlyoutControllers.add(keptFlyout);
       _currentIndex = 0;
 
-      _paneFlowIds.fillRange(0, _paneFlowIds.length, null);
+      _paneFlowIds.fillRange(0, _paneFlowIds.length, '__empty__');
       _paneFlowIds[0] = keptFlow.id;
     });
   }
@@ -227,10 +227,13 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
 
     if (_isStatisticsVisible) {
       _statisticsController.reverse().then((_) {
+        if (!mounted) return;
         setState(() {
           _isStatisticsVisible = false;
         });
-        activeFlow.setStatisticsVisible(false);
+        if (!activeFlow.isDisposed) {
+          activeFlow.setStatisticsVisible(false);
+        }
       });
     } else {
       setState(() {
@@ -344,7 +347,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                 color: flow.isRunning ? colors.latencyWarn : colors.latencyGood,
               ),
               onPressed: () => flow.execTraceroute(
-                onError: () => showErrorPopup(context),
+                onError: () {
+                  if (mounted) showErrorPopup(context);
+                },
               ),
             ),
           ),
@@ -397,7 +402,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                             ipController: flow.ipController,
                             intervalController: flow.intervalController,
                             execTraceroute: () => flow.execTraceroute(
-                              onError: () => showErrorPopup(context),
+                              onError: () {
+                                if (mounted) showErrorPopup(context);
+                              },
                             ),
                             onReset: () => flow.reset(),
                             hasData: flow.dataCollected || flow.ipStats.isNotEmpty,
@@ -644,7 +651,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                             : colors.latencyGood,
                       ),
                       onPressed: () => flow.execTraceroute(
-                        onError: () => showErrorPopup(context),
+                        onError: () {
+                          if (mounted) showErrorPopup(context);
+                        },
                       ),
                     ),
                   ),

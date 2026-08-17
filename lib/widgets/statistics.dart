@@ -94,7 +94,18 @@ class _StatisticsState extends State<Statistics> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  children: widget.deepStats.asMap().entries.map((entry) {
+                  // deepStats/IPStats/dataTypes are reset by FlowSession in
+                  // separate statements, each followed by its own
+                  // notifyListeners() — a rebuild caught mid-reset can see
+                  // mismatched lengths, so clamp to the shortest list rather
+                  // than indexing out of range.
+                  children: widget.deepStats
+                      .asMap()
+                      .entries
+                      .where((entry) =>
+                          entry.key < widget.IPStats.length &&
+                          entry.key < widget.dataTypes.length)
+                      .map((entry) {
                     final index = entry.key;
                     final deepStat = entry.value;
                     final ipStat = widget.IPStats[index];

@@ -99,11 +99,13 @@ class SnapshotStore extends ChangeNotifier {
     }
   }
 
-  Future<void> save(Snapshot snapshot) async {
-    if (!await _writeSnapshotFile(snapshot)) return;
+  /// Returns false if the snapshot could not be written to disk.
+  Future<bool> save(Snapshot snapshot) async {
+    if (!await _writeSnapshotFile(snapshot)) return false;
     _upsertIndexEntry(SnapshotMeta.fromSnapshot(snapshot));
     notifyListeners();
     await _saveIndex();
+    return true;
   }
 
   /// Saves or refreshes a flow's rolling auto-snapshot. [snapshot.id] should

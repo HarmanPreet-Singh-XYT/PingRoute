@@ -1,6 +1,18 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:validators/validators.dart';
 import '../core/theme.dart';
 import '../models/target_directory.dart';
+
+/// A bare hostname label (e.g. "router1", "localhost") has no dot and isn't
+/// a dotted IP, so [isURL] rejects it unless a scheme is added first — this
+/// mirrors what the traceroute engine itself will accept at probe time.
+bool _isValidTarget(String value) {
+  if (value.isEmpty) return false;
+  if (isIP(value)) return true;
+  if (isURL(value)) return true;
+  if (isURL('http://$value')) return true;
+  return false;
+}
 
 void showTargetDirectoryDialog(
   BuildContext context, {
@@ -43,6 +55,7 @@ class _TargetDirectoryDialogContentState
 
   bool _isAdding = false;
   SavedTarget? _editingTarget;
+  String? _targetError;
 
   @override
   void initState() {
@@ -66,6 +79,7 @@ class _TargetDirectoryDialogContentState
     setState(() {
       _isAdding = true;
       _editingTarget = null;
+      _targetError = null;
       _nameController.clear();
       _targetController.text = widget.initialTarget.trim().isNotEmpty
           ? widget.initialTarget.trim()
@@ -78,6 +92,7 @@ class _TargetDirectoryDialogContentState
     setState(() {
       _isAdding = false;
       _editingTarget = target;
+      _targetError = null;
       _nameController.text = target.name;
       _targetController.text = target.target;
       _noteController.text = target.note;
@@ -88,6 +103,7 @@ class _TargetDirectoryDialogContentState
     setState(() {
       _isAdding = false;
       _editingTarget = null;
+      _targetError = null;
     });
   }
 
@@ -96,7 +112,14 @@ class _TargetDirectoryDialogContentState
     final target = _targetController.text.trim();
     final note = _noteController.text.trim();
 
-    if (target.isEmpty) return;
+    if (!_isValidTarget(target)) {
+      setState(() {
+        _targetError = target.isEmpty
+            ? 'Target is required'
+            : 'Enter a valid IP address or hostname';
+      });
+      return;
+    }
 
     if (_editingTarget != null) {
       TargetDirectory.instance.updateTarget(
@@ -117,6 +140,7 @@ class _TargetDirectoryDialogContentState
     setState(() {
       _isAdding = false;
       _editingTarget = null;
+      _targetError = null;
     });
   }
 
@@ -211,11 +235,23 @@ class _TargetDirectoryDialogContentState
                               child: TextBox(
                                 placeholder: 'e.g. 1.1.1.1 or example.com',
                                 controller: _targetController,
+                                onChanged: (_) {
+                                  if (_targetError != null) {
+                                    setState(() => _targetError = null);
+                                  }
+                                },
                               ),
                             ),
                           ),
                         ],
                       ),
+                      if (_targetError != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _targetError!,
+                          style: type.caption.copyWith(color: colors.latencyBad),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       InfoLabel(
                         label: 'Notes (optional)',
