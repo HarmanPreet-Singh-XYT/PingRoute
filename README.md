@@ -131,9 +131,3 @@ flutter test
 - **Charts & Graphs**: [fl_chart](https://pub.dev/packages/fl_chart)
 - **Network Probing**: Raw ICMP / UDP socket binding via `dart_ping` & platform sockets
 - **Theme & System Integration**: `system_theme`, `url_launcher`
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
