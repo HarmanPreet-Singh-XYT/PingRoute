@@ -1,5 +1,5 @@
 name: pingroute
-version: '1.0.0'
+version: '2.0.0'
 summary: Real-time network traceroute and ping diagnostic tool
 description: |
   PingRoute is a network visualization and diagnostic tool providing real-time ping graphs, hop analysis, and multi-target traceroute inspection.

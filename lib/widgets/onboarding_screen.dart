@@ -309,23 +309,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               fontSize: 15,
             ),
           ),
-          if (screenClass != ScreenClass.mobile) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'v1.1',
-                style: type.caption.copyWith(
-                  color: colors.accent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
           const Spacer(),
 
           // Page Indicator Chip
