@@ -20,6 +20,7 @@ class Navbar extends StatelessWidget {
     this.onReset,
     this.onSaveSnapshot,
     this.hasData = false,
+    this.forceMobile,
   });
 
   final TextEditingController ipController;
@@ -32,6 +33,7 @@ class Navbar extends StatelessWidget {
   final VoidCallback? onReset;
   final VoidCallback? onSaveSnapshot;
   final bool hasData;
+  final bool? forceMobile;
 
   @override
   Widget build(BuildContext context) {
@@ -40,21 +42,25 @@ class Navbar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final screenClass = screenClassForWidth(constraints.maxWidth);
+        final screenClass = screenClassForSize(Size(
+          constraints.maxWidth,
+          MediaQuery.of(context).size.height,
+        ));
+        final isMobileLayout = forceMobile ?? (screenClass == ScreenClass.mobile);
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: colors.panelBackground,
             border: Border.all(color: colors.borderColor),
-            borderRadius: screenClass == ScreenClass.mobile
+            borderRadius: isMobileLayout
                 ? BorderRadius.zero
                 : const BorderRadius.only(
                     bottomLeft: Radius.circular(16),
                     bottomRight: Radius.circular(16),
                   ),
           ),
-          child: screenClass == ScreenClass.mobile
+          child: isMobileLayout
               ? _MobileNavbar(
                   colors: colors,
                   type: type,

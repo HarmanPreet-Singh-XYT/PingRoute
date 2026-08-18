@@ -1314,7 +1314,9 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           content: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-              final isMobile = screenClassForWidth(constraints.maxWidth) ==
+              final isMobile = screenClassForSize(
+                    Size(constraints.maxWidth, constraints.maxHeight),
+                  ) ==
                   ScreenClass.mobile;
 
               final mainContent = isMobile

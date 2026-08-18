@@ -57,6 +57,7 @@ class _MobileShellState extends State<MobileShell> {
   int _tabIndex = 0;
   int? _selectedHop;
   String _dataType = 'lt';
+  bool _isHeaderVisible = true;
 
   void _openHop(int hop) {
     setState(() {
@@ -153,210 +154,242 @@ class _MobileShellState extends State<MobileShell> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final type = appTypography(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge(widget.flows),
+      builder: (context, _) {
+        final colors = appColors(context);
+        final type = appTypography(context);
 
-    final safeIndex = widget.currentFlowIndex.clamp(0, widget.flows.length - 1);
-    final currentSession = widget.flows[safeIndex];
+        final safeIndex = widget.currentFlowIndex.clamp(0, widget.flows.length - 1);
+        final currentSession = widget.flows[safeIndex];
 
-    final defaultHop = currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1;
-    final effectiveSelectedHop = (_selectedHop ?? defaultHop).clamp(
-      1,
-      currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1,
-    );
+        final defaultHop = currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1;
+        final effectiveSelectedHop = (_selectedHop ?? defaultHop).clamp(
+          1,
+          currentSession.deepStats.isNotEmpty ? currentSession.deepStats.length : 1,
+        );
 
-    final pages = [
-      _OverviewTab(
-        target: currentSession.title,
-        isRunning: currentSession.isRunning,
-        ipStats: currentSession.ipStats,
-        deepStats: currentSession.deepStats,
-        isSuccess: currentSession.success,
-        isLoading: currentSession.isLoading,
-        colors: colors,
-        type: type,
-        interval: currentSession.interval,
-        onSelectHop: _openHop,
-        onToggleStatistics: widget.onToggleStatistics,
-      ),
-      _HopsTab(
-        data: currentSession.tracerouteResult,
-        ipStats: currentSession.ipStats,
-        deepStats: currentSession.deepStats,
-        isLoading: currentSession.isLoading,
-        isSuccess: currentSession.success,
-        colors: colors,
-        type: type,
-        onSelectHop: _openHop,
-        onSelectHopTimeline: _openHopTimeline,
-        onOpenInNewTab: widget.onOpenInNewTab,
-        onToggleStatistics: widget.onToggleStatistics,
-      ),
-      _GraphTab(
-        ipStats: currentSession.ipStats,
-        deepStats: currentSession.deepStats,
-        isSuccess: currentSession.success,
-        isLoading: currentSession.isLoading,
-        selectedHop: effectiveSelectedHop,
-        onSelectHop: (h) => setState(() => _selectedHop = h),
-        dataType: _dataType,
-        onSelectDataType: (t) => setState(() => _dataType = t),
-        interval: currentSession.interval,
-        isRunning: currentSession.isRunning,
-        totalPackets: currentSession.packetSent,
-        colors: colors,
-        type: type,
-        onToggleStatistics: widget.onToggleStatistics,
-      ),
-      _TimelineTab(
-        deepStats: currentSession.deepStats,
-        events: currentSession.timelineEvents,
-        timelineHistory: currentSession.timelineHistory,
-        selectedHop: effectiveSelectedHop,
-        onSelectHop: (h) => setState(() => _selectedHop = h),
-        interval: currentSession.interval,
-        isRunning: currentSession.isRunning,
-        isLoading: currentSession.isLoading,
-        isSuccess: currentSession.success,
-        colors: colors,
-        type: type,
-      ),
-      _SnapshotsTab(
-        onOpenSnapshot: widget.onOpenSnapshot,
-        colors: colors,
-        type: type,
-      ),
-    ];
-
-    return SafeArea(
-      child: Column(
-        children: [
-          // Flow session selector bar for mobile
-          Container(
-            height: 44,
-            color: colors.panelBackground,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ListView.separated(
-                    primary: false,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: widget.flows.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 4),
-                    itemBuilder: (context, index) {
-                      final flow = widget.flows[index];
-                      final isSelected = index == safeIndex;
-                      return GestureDetector(
-                        onTap: () => widget.onFlowSelected(index),
-                        onLongPress: () => _showTabOptions(context, index, flow),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? colors.accent.withValues(alpha: 0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                            border: isSelected
-                                ? Border.all(color: colors.accent, width: 1)
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (flow.isRunning) ...[
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: colors.latencyGood,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ] else if (flow.isLoading) ...[
-                                const SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: ProgressRing(strokeWidth: 2),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              Text(
-                                flow.title,
-                                style: type.caption.copyWith(
-                                  color: isSelected
-                                      ? colors.accent
-                                      : colors.textPrimary,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                              if (widget.flows.length > 1) ...[
-                                const SizedBox(width: 4),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => widget.onCloseFlow(index),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      FluentIcons.chrome_close,
-                                      size: 10,
-                                      color: colors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                TouchIconButton(
-                  icon: Icon(FluentIcons.add, size: 14, color: colors.accent),
-                  iconSize: 14,
-                  onPressed: widget.onAddFlow,
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          Navbar(
-            ipController: currentSession.ipController,
-            intervalController: currentSession.intervalController,
-            execTraceroute: () => currentSession.execTraceroute(),
+        final pages = [
+          _OverviewTab(
+            target: currentSession.title,
             isRunning: currentSession.isRunning,
-            showSettings: widget.showSettings,
-            setText: currentSession.setText,
-            onExport: widget.onExport != null
-                ? () => widget.onExport!(currentSession)
-                : null,
-            onSaveSnapshot: widget.onSaveSnapshot != null
-                ? () => widget.onSaveSnapshot!(currentSession)
-                : null,
-            onReset: currentSession.reset,
-            hasData: currentSession.dataCollected || currentSession.ipStats.isNotEmpty,
+            ipStats: currentSession.ipStats,
+            deepStats: currentSession.deepStats,
+            isSuccess: currentSession.success,
+            isLoading: currentSession.isLoading,
+            colors: colors,
+            type: type,
+            interval: currentSession.interval,
+            onSelectHop: _openHop,
+            onToggleStatistics: widget.onToggleStatistics,
           ),
-          Expanded(
-            child: IndexedStack(index: _tabIndex, children: pages),
+          _HopsTab(
+            data: currentSession.tracerouteResult,
+            ipStats: currentSession.ipStats,
+            deepStats: currentSession.deepStats,
+            isLoading: currentSession.isLoading,
+            isSuccess: currentSession.success,
+            colors: colors,
+            type: type,
+            onSelectHop: _openHop,
+            onSelectHopTimeline: _openHopTimeline,
+            onOpenInNewTab: widget.onOpenInNewTab,
+            onToggleStatistics: widget.onToggleStatistics,
           ),
-          _BottomTabBar(
-            index: _tabIndex,
-            onChanged: (i) => setState(() => _tabIndex = i),
-            incidentCount: currentSession.timelineEvents.length,
+          _GraphTab(
+            ipStats: currentSession.ipStats,
+            deepStats: currentSession.deepStats,
+            isSuccess: currentSession.success,
+            isLoading: currentSession.isLoading,
+            selectedHop: effectiveSelectedHop,
+            onSelectHop: (h) => setState(() => _selectedHop = h),
+            dataType: _dataType,
+            onSelectDataType: (t) => setState(() => _dataType = t),
+            interval: currentSession.interval,
+            isRunning: currentSession.isRunning,
+            totalPackets: currentSession.packetSent,
+            colors: colors,
+            type: type,
+            onToggleStatistics: widget.onToggleStatistics,
+          ),
+          _TimelineTab(
+            deepStats: currentSession.deepStats,
+            events: currentSession.timelineEvents,
+            timelineHistory: currentSession.timelineHistory,
+            selectedHop: effectiveSelectedHop,
+            onSelectHop: (h) => setState(() => _selectedHop = h),
+            interval: currentSession.interval,
+            isRunning: currentSession.isRunning,
+            isLoading: currentSession.isLoading,
+            isSuccess: currentSession.success,
             colors: colors,
             type: type,
           ),
-        ],
-      ),
-    );
-  }
+          _SnapshotsTab(
+            onOpenSnapshot: widget.onOpenSnapshot,
+            colors: colors,
+            type: type,
+          ),
+        ];
+
+        return SafeArea(
+          child: Column(
+            children: [
+              // Flow session selector bar for mobile (always visible with toggle button)
+              Container(
+                height: 44,
+                color: colors.panelBackground,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        primary: false,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.flows.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 4),
+                        itemBuilder: (context, index) {
+                          final flow = widget.flows[index];
+                          final isSelected = index == safeIndex;
+                          return GestureDetector(
+                            onTap: () => widget.onFlowSelected(index),
+                            onLongPress: () => _showTabOptions(context, index, flow),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? colors.accent.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: isSelected
+                                    ? Border.all(color: colors.accent, width: 1)
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (flow.isRunning) ...[
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: colors.latencyGood,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ] else if (flow.isLoading) ...[
+                                    const SizedBox(
+                                      width: 8,
+                                      height: 8,
+                                      child: ProgressRing(strokeWidth: 2),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ] else if (flow.dataCollected || flow.ipStats.isNotEmpty) ...[
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: colors.latencyWarn,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    flow.title.isEmpty ? flow.ip : flow.title,
+                                    style: type.caption.copyWith(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? colors.textPrimary : colors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  if (widget.flows.length > 1)
+                                    GestureDetector(
+                                      onTap: () => widget.onCloseFlow(index),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: Icon(
+                                          FluentIcons.clear,
+                                          size: 10,
+                                          color: isSelected ? colors.textPrimary : colors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'New Flow',
+                      child: IconButton(
+                        icon: Icon(FluentIcons.add, size: 14, color: colors.accent),
+                        onPressed: widget.onAddFlow,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Tooltip(
+                      message: _isHeaderVisible ? 'Hide Controls' : 'Show Controls',
+                      child: IconButton(
+                        icon: Icon(
+                          _isHeaderVisible
+                              ? FluentIcons.chevron_up_small
+                              : FluentIcons.chevron_down_small,
+                          size: 14,
+                          color: colors.textSecondary,
+                        ),
+                        onPressed: () => setState(() => _isHeaderVisible = !_isHeaderVisible),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 200),
+                crossFadeState: _isHeaderVisible
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                firstChild: Navbar(
+                  forceMobile: true,
+                  ipController: currentSession.ipController,
+                  intervalController: currentSession.intervalController,
+                  execTraceroute: () => currentSession.execTraceroute(),
+                  isRunning: currentSession.isRunning,
+                  showSettings: widget.showSettings,
+                  setText: currentSession.setText,
+                  onExport: widget.onExport != null
+                      ? () => widget.onExport!(currentSession)
+                      : null,
+                  onSaveSnapshot: widget.onSaveSnapshot != null
+                      ? () => widget.onSaveSnapshot!(currentSession)
+                      : null,
+                  onReset: currentSession.reset,
+                  hasData: currentSession.dataCollected || currentSession.ipStats.isNotEmpty,
+                ),
+                secondChild: const SizedBox.shrink(),
+              ),
+                Expanded(
+                  child: IndexedStack(index: _tabIndex, children: pages),
+                ),
+                _BottomTabBar(
+                  index: _tabIndex,
+                  onChanged: (i) => setState(() => _tabIndex = i),
+                  incidentCount: currentSession.timelineEvents.length,
+                  colors: colors,
+                  type: type,
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
 }
 
 class _BottomTabBar extends StatelessWidget {
@@ -368,96 +401,89 @@ class _BottomTabBar extends StatelessWidget {
     required this.type,
   });
   final int index;
-  final void Function(int) onChanged;
+  final ValueChanged<int> onChanged;
   final int incidentCount;
   final AppColors colors;
   final AppTypography type;
 
-  static const _tabs = [
-    (FluentIcons.view_dashboard, 'Overview'),
-    (FluentIcons.list, 'Hops'),
-    (FluentIcons.line_chart, 'Graph'),
-    (FluentIcons.timeline_progress, 'Timeline'),
-    (FluentIcons.history, 'Snapshots'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 48,
       decoration: BoxDecoration(
-        color: colors.panelBackground,
+        color: colors.panelBackgroundAlt,
         border: Border(top: BorderSide(color: colors.borderColor)),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          for (int i = 0; i < _tabs.length; i++)
-            Expanded(
-              child: HoverButton(
-                onPressed: () => onChanged(i),
-                builder: (context, states) {
-                  final isSelected = index == i;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(
-                              _tabs[i].$1,
-                              size: 20,
-                              color: isSelected
-                                  ? colors.accent
-                                  : colors.textSecondary,
-                            ),
-                            if (i == 3 && incidentCount > 0)
-                              Positioned(
-                                right: -8,
-                                top: -4,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 14,
-                                    minHeight: 14,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      incidentCount > 99 ? '99+' : '$incidentCount',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+          Expanded(child: _barItem(FluentIcons.view_dashboard, 'Overview', 0)),
+          Expanded(child: _barItem(FluentIcons.list, 'Hops', 1)),
+          Expanded(child: _barItem(FluentIcons.line_chart, 'Graph', 2)),
+          Expanded(
+            child: _barItem(
+              FluentIcons.timeline_progress,
+              'Timeline',
+              3,
+              badge: incidentCount > 0 ? incidentCount.toString() : null,
+            ),
+          ),
+          Expanded(child: _barItem(FluentIcons.history, 'Snapshots', 4)),
+        ],
+      ),
+    );
+  }
+
+  Widget _barItem(IconData icon, String label, int targetIndex, {String? badge}) {
+    final isSelected = index == targetIndex;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(targetIndex),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected ? colors.accent : colors.textSecondary,
+                ),
+                if (badge != null)
+                  Positioned(
+                    top: -4,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: colors.latencyWarn,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          _tabs[i].$2,
-                          style: type.caption.copyWith(
-                            color: isSelected
-                                ? colors.accent
-                                : colors.textSecondary,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  );
-                },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: type.caption.copyWith(
+                color: isSelected ? colors.accent : colors.textSecondary,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -495,6 +521,7 @@ class _OverviewTab extends StatefulWidget {
 
 class _OverviewTabState extends State<_OverviewTab> {
   String _dataType = 'lt';
+  bool _showGraph = false;
   // Overview/Hops/Graph/Timeline tabs are all kept mounted at once by the
   // parent IndexedStack, so on iOS this SingleChildScrollView would otherwise
   // share the ambient PrimaryScrollController with _GraphTab's — the same
@@ -523,103 +550,515 @@ class _OverviewTabState extends State<_OverviewTab> {
     final tiles = statTileData(widget.ipStats, widget.deepStats, colors);
     final worstHop = _worstHop(widget.ipStats);
 
-    return SingleChildScrollView(
-      primary: false,
-      controller: _scrollController,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _StatusHeader(
-            target: widget.target,
-            isRunning: widget.isRunning,
-            colors: colors,
-            type: type,
-            onToggleStatistics: widget.onToggleStatistics,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape = constraints.maxWidth > 550;
+
+        return SingleChildScrollView(
+          primary: false,
+          controller: _scrollController,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Overview', style: type.title),
-              if (widget.onToggleStatistics != null)
-                Button(
-                  onPressed: widget.onToggleStatistics,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(FluentIcons.timeline_progress, size: 12, color: colors.accent),
-                      const SizedBox(width: 4),
-                      Text('All Hops', style: type.caption.copyWith(color: colors.accent)),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 2.3,
-            children: [
-              for (final tile in tiles)
-                StatTile(
-                  icon: tile.$1,
-                  label: tile.$2,
-                  value: tile.$3,
-                  valueColor: tile.$4,
-                  colors: colors,
-                  type: type,
-                ),
-            ],
-          ),
-          if (worstHop != null) ...[
-            const SizedBox(height: 14),
-            Text('Needs attention', style: type.title),
-            const SizedBox(height: 8),
-            _WorstHopCard(
-              hop: worstHop,
-              colors: colors,
-              type: type,
-              onTap: () => widget.onSelectHop(worstHop.$1),
-            ),
-          ],
-          if (widget.deepStats.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text('Target Live Latency', style: type.title),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.panelBackground,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colors.borderColor),
-              ),
-              child: Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GraphTypePills(
-                    dataType: _dataType,
-                    onSelect: (t) => setState(() => _dataType = t),
-                    colors: colors,
-                    type: type,
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 220,
-                    child: Graph(
-                      data: widget.deepStats.last,
-                      dataType: _dataType,
-                      interval: widget.interval,
-                      isRunning: widget.isRunning,
+                  Text('Overview', style: type.title),
+                  if (widget.onToggleStatistics != null)
+                    Button(
+                      onPressed: widget.onToggleStatistics,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(FluentIcons.timeline_progress, size: 12, color: colors.accent),
+                          const SizedBox(width: 4),
+                          Text('All Hops', style: type.caption.copyWith(color: colors.accent)),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
+              const SizedBox(height: 10),
+              GridView.count(
+                crossAxisCount: isLandscape ? 4 : 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: isLandscape ? 2.2 : 2.2,
+                children: [
+                  for (final tile in tiles)
+                    StatTile(
+                      icon: tile.$1,
+                      label: tile.$2,
+                      value: tile.$3,
+                      valueColor: tile.$4,
+                      colors: colors,
+                      type: type,
+                    ),
+                ],
+              ),
+              if (worstHop != null) ...[
+                const SizedBox(height: 14),
+                Text('Needs attention', style: type.title),
+                const SizedBox(height: 8),
+                _WorstHopCard(
+                  hop: worstHop,
+                  colors: colors,
+                  type: type,
+                  onTap: () => widget.onSelectHop(worstHop.$1),
+                ),
+              ],
+              if (widget.deepStats.isNotEmpty || widget.ipStats.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _showGraph ? 'Live Latency' : 'Hops Telemetry Table',
+                        style: type.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ModePill(
+                          icon: FluentIcons.table,
+                          label: 'Table',
+                          isSelected: !_showGraph,
+                          onTap: () => setState(() => _showGraph = false),
+                          colors: colors,
+                          type: type,
+                        ),
+                        const SizedBox(width: 6),
+                        _ModePill(
+                          icon: FluentIcons.line_chart,
+                          label: 'Graph',
+                          isSelected: _showGraph,
+                          onTap: () => setState(() => _showGraph = true),
+                          colors: colors,
+                          type: type,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_showGraph && widget.deepStats.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.panelBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        GraphTypePills(
+                          dataType: _dataType,
+                          onSelect: (t) => setState(() => _dataType = t),
+                          colors: colors,
+                          type: type,
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 220,
+                          child: Graph(
+                            data: widget.deepStats.last,
+                            dataType: _dataType,
+                            interval: widget.interval,
+                            isRunning: widget.isRunning,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  _buildCompactHopsTable(colors, type, isLandscape),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCompactHopsTable(AppColors colors, AppTypography type, bool isLandscape) {
+    if (widget.ipStats.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colors.panelBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.borderColor),
+        ),
+        child: Text('No hop telemetry available', style: type.caption),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.panelBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.borderColor),
+      ),
+      child: Column(
+        children: [
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: colors.panelBackgroundAlt,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              border: Border(bottom: BorderSide(color: colors.borderColor)),
             ),
-          ],
+            child: isLandscape
+                ? Row(
+                    children: [
+                      SizedBox(
+                        width: 36,
+                        child: Text(
+                          'Hop',
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'IP Address',
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 4,
+                        child: Text(
+                          'Hostname',
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          'Min',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          'Avg',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          'Max',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          'Last',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 44,
+                        child: Text(
+                          'Loss',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      SizedBox(
+                        width: 38,
+                        child: Text(
+                          'Hop',
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 5,
+                        child: Text(
+                          'Host / IP',
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 52,
+                        child: Text(
+                          'Last',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 52,
+                        child: Text(
+                          'Avg',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 44,
+                        child: Text(
+                          'Loss',
+                          textAlign: TextAlign.right,
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          // Table Rows
+          ListView.separated(
+            primary: false,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.ipStats.length,
+            separatorBuilder: (_, __) => Divider(
+              style: DividerThemeData(
+                horizontalMargin: const EdgeInsets.symmetric(horizontal: 10),
+                thickness: 0.5,
+                decoration: BoxDecoration(color: colors.borderColor.withValues(alpha: 0.4)),
+              ),
+            ),
+            itemBuilder: (context, index) {
+              final stat = widget.ipStats[index];
+              final hopNum = stat['hop'] as int? ?? (index + 1);
+              final ip = (stat['ip'] ?? '').toString();
+              final name = (stat['name'] ?? '').toString();
+              final min = stat['min'];
+              final avg = stat['avg'];
+              final max = stat['max'];
+              final last = stat['last'];
+              final pl = stat['pl'] as int? ?? 0;
+
+              final lastColor = last == null || last == -1
+                  ? colors.textSecondary
+                  : latencyColor(colors, last is num ? last.toInt() : -1);
+
+              final lossColor = pl <= 0
+                  ? colors.latencyGood
+                  : (pl <= 20 ? colors.latencyWarn : colors.latencyBad);
+
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.onSelectHop(hopNum),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: isLandscape
+                      ? Row(
+                          children: [
+                            SizedBox(
+                              width: 36,
+                              child: Text(
+                                '#$hopNum',
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.accent,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                ip.isEmpty ? '-' : ip,
+                                style: type.bodyStrong.copyWith(fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                name.isEmpty || name == ip ? '-' : name,
+                                style: type.caption.copyWith(
+                                  color: colors.textSecondary,
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 48,
+                              child: Text(
+                                min == null || min == -1 ? '-' : '${min}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(color: colors.textSecondary),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 48,
+                              child: Text(
+                                avg == null || avg == -1 ? '-' : '${avg}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(color: colors.textPrimary),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 48,
+                              child: Text(
+                                max == null || max == -1 ? '-' : '${max}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(color: colors.textSecondary),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 48,
+                              child: Text(
+                                last == null || last == -1 ? '-' : '${last}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: lastColor,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                '$pl%',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: lossColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            SizedBox(
+                              width: 38,
+                              child: Text(
+                                '#$hopNum',
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.accent,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    ip.isEmpty ? '-' : ip,
+                                    style: type.bodyStrong.copyWith(fontSize: 12),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (name.isNotEmpty && name != ip)
+                                    Text(
+                                      name,
+                                      style: type.caption.copyWith(
+                                        color: colors.textSecondary,
+                                        fontSize: 10,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(
+                              width: 52,
+                              child: Text(
+                                last == null || last == -1 ? '-' : '${last}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: lastColor,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 52,
+                              child: Text(
+                                avg == null || avg == -1 ? '-' : '${avg}ms',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(
+                                  color: colors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                '$pl%',
+                                textAlign: TextAlign.right,
+                                style: type.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: lossColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -650,62 +1089,6 @@ class _OverviewTabState extends State<_OverviewTab> {
     final max = worst['max'] as int? ?? -1;
     if (pl <= 0 && max < 150) return null;
     return (worstHopNum, worst);
-  }
-}
-
-class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({
-    required this.target,
-    required this.isRunning,
-    required this.colors,
-    required this.type,
-    this.onToggleStatistics,
-  });
-  final String target;
-  final bool isRunning;
-  final AppColors colors;
-  final AppTypography type;
-  final VoidCallback? onToggleStatistics;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.panelBackgroundAlt,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.borderColor),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: isRunning ? colors.latencyGood : colors.textSecondary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  target,
-                  style: type.bodyStrong,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  isRunning ? 'Probing actively…' : 'Probing paused',
-                  style: type.caption.copyWith(color: colors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1527,6 +1910,13 @@ class _TimelineTab extends StatefulWidget {
 
 class _TimelineTabState extends State<_TimelineTab> {
   int _viewMode = 0; // 0 = Timeline Chart, 1 = Incident Log
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1540,91 +1930,115 @@ class _TimelineTabState extends State<_TimelineTab> {
 
     final safeHop = widget.selectedHop.clamp(1, widget.deepStats.length);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Mode Selector: Timeline Chart vs Incident Log
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          color: colors.panelBackgroundAlt,
-          child: Row(
+    if (_viewMode == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildModeSelector(colors, type),
+          const Divider(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: _buildIncidentLogList(colors, type),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape = constraints.maxWidth > 550;
+
+        return SingleChildScrollView(
+          primary: false,
+          controller: _scrollController,
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: _ModePill(
-                  icon: FluentIcons.timeline_progress,
-                  label: 'Timeline Chart',
-                  isSelected: _viewMode == 0,
-                  onTap: () => setState(() => _viewMode = 0),
-                  colors: colors,
-                  type: type,
-                ),
+              _buildModeSelector(colors, type),
+              const SizedBox(height: 8),
+              // Hop Selector for Timeline
+              Row(
+                children: [
+                  Text('Hop:', style: type.caption.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SizedBox(
+                      height: 34,
+                      child: ListView.separated(
+                        primary: false,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.deepStats.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) {
+                          final hopNum = widget.deepStats[index]['hop'] as int;
+                          return SizedBox(
+                            width: 40,
+                            child: ToggleButton(
+                              checked: hopNum == safeHop,
+                              onChanged: (_) => widget.onSelectHop(hopNum),
+                              child: Text('$hopNum'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModePill(
-                  icon: FluentIcons.incident_triangle,
-                  label: 'Incidents (${widget.events.length})',
-                  isSelected: _viewMode == 1,
-                  onTap: () => setState(() => _viewMode = 1),
-                  colors: colors,
-                  type: type,
+              const SizedBox(height: 8),
+              SizedBox(
+                height: isLandscape ? 280 : 340,
+                child: TimelineChart(
+                  deepStats: widget.deepStats,
+                  events: widget.events,
+                  selectedHop: safeHop,
+                  interval: widget.interval,
+                  isRunning: widget.isRunning,
+                  timelineHistory: widget.timelineHistory,
                 ),
               ),
             ],
           ),
-        ),
-        const Divider(),
+        );
+      },
+    );
+  }
 
-        // Hop Selector for Timeline
-        if (_viewMode == 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(
-              children: [
-                Text('Hop:', style: type.caption.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 34,
-                    child: ListView.separated(
-                      primary: false,
-                      scrollDirection: Axis.horizontal,
-                      itemCount: widget.deepStats.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 6),
-                      itemBuilder: (context, index) {
-                        final hopNum = widget.deepStats[index]['hop'] as int;
-                        return SizedBox(
-                          width: 40,
-                          child: ToggleButton(
-                            checked: hopNum == safeHop,
-                            onChanged: (_) => widget.onSelectHop(hopNum),
-                            child: Text('$hopNum'),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildModeSelector(AppColors colors, AppTypography type) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.panelBackgroundAlt,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ModePill(
+              icon: FluentIcons.timeline_progress,
+              label: 'Timeline Chart',
+              isSelected: _viewMode == 0,
+              onTap: () => setState(() => _viewMode = 0),
+              colors: colors,
+              type: type,
             ),
           ),
-
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: _viewMode == 0
-                ? TimelineChart(
-                    deepStats: widget.deepStats,
-                    events: widget.events,
-                    selectedHop: safeHop,
-                    interval: widget.interval,
-                    isRunning: widget.isRunning,
-                    timelineHistory: widget.timelineHistory,
-                  )
-                : _buildIncidentLogList(colors, type),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _ModePill(
+              icon: FluentIcons.incident_triangle,
+              label: 'Incidents (${widget.events.length})',
+              isSelected: _viewMode == 1,
+              onTap: () => setState(() => _viewMode = 1),
+              colors: colors,
+              type: type,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
