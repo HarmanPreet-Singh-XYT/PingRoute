@@ -10,10 +10,18 @@ typedef GetTracerouteArrayDart = Pointer<Pointer<Utf8>> Function(Pointer<Utf8>, 
 typedef FreeTracerouteArrayC = Void Function(Pointer<Pointer<Utf8>>, Int32);
 typedef FreeTracerouteArrayDart = void Function(Pointer<Pointer<Utf8>>, int);
 
+typedef PingHostC = Int32 Function(Pointer<Utf8>, Int32);
+typedef PingHostDart = int Function(Pointer<Utf8>, int);
+
+typedef PingAllHopsC = Void Function(Pointer<Utf8>, Pointer<Pointer<Utf8>>, Int32, Int32, Pointer<Int32>);
+typedef PingAllHopsDart = void Function(Pointer<Utf8>, Pointer<Pointer<Utf8>>, int, int, Pointer<Int32>);
+
 class NetworkLib {
   DynamicLibrary? _lib;
   GetTracerouteArrayDart? getTracerouteArray;
   FreeTracerouteArrayDart? freeTracerouteArray;
+  PingHostDart? pingHost;
+  PingAllHopsDart? pingAllHops;
   bool _isNativeAvailable = false;
 
   bool get isNativeAvailable => _isNativeAvailable;
@@ -68,10 +76,60 @@ class NetworkLib {
           .lookupFunction<GetTracerouteArrayC, GetTracerouteArrayDart>('get_traceroute_array');
       freeTracerouteArray = _lib!
           .lookupFunction<FreeTracerouteArrayC, FreeTracerouteArrayDart>('free_traceroute_array');
+      try {
+        pingHost = _lib!.lookupFunction<PingHostC, PingHostDart>('ping_host');
+      } catch (_) {}
+      try {
+        pingAllHops = _lib!.lookupFunction<PingAllHopsC, PingAllHopsDart>('ping_all_hops');
+      } catch (_) {}
       _isNativeAvailable = true;
     } catch (_) {
       _isNativeAvailable = false;
     }
+  }
+
+  int pingHostDirect(String destination, {int timeoutMs = 1000}) {
+    if (destination.isEmpty || destination == '*' || destination == '?') return -1;
+    if (pingHost != null) {
+      final destPtr = destination.toNativeUtf8();
+      try {
+        return pingHost!(destPtr, timeoutMs);
+      } catch (_) {
+        return -1;
+      } finally {
+        calloc.free(destPtr);
+      }
+    }
+    return -1;
+  }
+
+  List<int> pingAllHopsDirect(String targetDestination, List<String> destinations, {int timeoutMs = 800}) {
+    if (destinations.isEmpty || targetDestination.isEmpty) return [];
+    if (pingAllHops != null) {
+      final count = destinations.length;
+      final targetPtr = targetDestination.toNativeUtf8();
+      final destPointers = calloc<Pointer<Utf8>>(count);
+      final resultsPtr = calloc<Int32>(count);
+      try {
+        for (int i = 0; i < count; i++) {
+          destPointers[i] = destinations[i].toNativeUtf8();
+        }
+        pingAllHops!(targetPtr, destPointers, count, timeoutMs, resultsPtr);
+        return [for (int i = 0; i < count; i++) resultsPtr[i]];
+      } catch (_) {
+        return List.filled(count, -1);
+      } finally {
+        calloc.free(targetPtr);
+        for (int i = 0; i < count; i++) {
+          if (destPointers[i] != nullptr) {
+            calloc.free(destPointers[i]);
+          }
+        }
+        calloc.free(destPointers);
+        calloc.free(resultsPtr);
+      }
+    }
+    return List.filled(destinations.length, -1);
   }
 
   Future<List<String>> performTraceroute(String destination) async {

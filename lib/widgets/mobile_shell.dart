@@ -233,10 +233,13 @@ class _MobileShellState extends State<MobileShell> {
         ];
 
         return SafeArea(
-          child: Column(
-            children: [
-              // Flow session selector bar for mobile (always visible with toggle button)
-              Container(
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            behavior: HitTestBehavior.translucent,
+            child: Column(
+              children: [
+                // Flow session selector bar for mobile (always visible with toggle button)
+                Container(
                 height: 44,
                 color: colors.panelBackground,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -386,10 +389,11 @@ class _MobileShellState extends State<MobileShell> {
                 ),
               ],
             ),
-          );
-        },
-      );
-    }
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _BottomTabBar extends StatelessWidget {
@@ -1425,6 +1429,11 @@ class _HopsTabState extends State<_HopsTab> {
                         placeholder: 'Filter by IP, host, hop #...',
                         controller: _searchController,
                         style: type.caption,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textCapitalization: TextCapitalization.none,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
                         onChanged: (text) => setState(() => _filterQuery = text),
                         suffix: _searchController.text.isNotEmpty
                             ? Padding(

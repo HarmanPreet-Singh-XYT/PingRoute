@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import '../core/breakpoints.dart';
 import '../core/shortcuts.dart';
 import '../core/theme.dart';
@@ -143,7 +144,10 @@ class _WideNavbar extends StatelessWidget {
           color: isRunning ? colors.latencyWarn : colors.latencyGood,
           size: 38,
         ),
-        onPressed: () => execTraceroute(),
+        onPressed: () {
+          FocusScope.of(context).unfocus();
+          execTraceroute();
+        },
       ),
     );
 
@@ -184,6 +188,9 @@ class _WideNavbar extends StatelessWidget {
           textAlign: TextAlign.center,
           style: type.body,
           controller: intervalController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textInputAction: TextInputAction.done,
           suffix: Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Text('ms', style: type.caption),
@@ -345,7 +352,10 @@ class _MobileNavbar extends StatelessWidget {
                   size: 34,
                 ),
                 iconSize: 34,
-                onPressed: () => execTraceroute(),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  execTraceroute();
+                },
               ),
             ),
             if (onReset != null && isResumable) ...[
@@ -359,7 +369,10 @@ class _MobileNavbar extends StatelessWidget {
                     size: 16,
                   ),
                   iconSize: 16,
-                  onPressed: onReset,
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    onReset?.call();
+                  },
                 ),
               ),
             ],
@@ -371,6 +384,7 @@ class _MobileNavbar extends StatelessWidget {
                 typography: type,
                 colors: colors,
                 onChanged: (text) => setText?.call(text, 'ip'),
+                onSubmitted: (text) => execTraceroute(),
                 width: double.infinity,
               ),
             ),
@@ -389,12 +403,20 @@ class _MobileNavbar extends StatelessWidget {
                 Text('Interval', style: type.caption),
                 const SizedBox(width: 6),
                 SizedBox(
-                  width: 80,
+                  width: 95,
                   child: TextBox(
-                    placeholder: 'ms',
+                    placeholder: '1000',
                     textAlign: TextAlign.center,
                     style: type.body,
                     controller: intervalController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                    suffix: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text('ms', style: type.caption.copyWith(fontSize: 10)),
+                    ),
                     onChanged: (text) => setText?.call(text, 'interval'),
                   ),
                 ),
@@ -409,14 +431,17 @@ class _MobileNavbar extends StatelessWidget {
                     color: colors.textSecondary,
                     size: 18,
                   ),
-                  onPressed: () => showTargetDirectoryDialog(
-                    context,
-                    initialTarget: ipController.text,
-                    onSelectTarget: (target) {
-                      ipController.text = target;
-                      setText?.call(target, 'ip');
-                    },
-                  ),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    showTargetDirectoryDialog(
+                      context,
+                      initialTarget: ipController.text,
+                      onSelectTarget: (target) {
+                        ipController.text = target;
+                        setText?.call(target, 'ip');
+                      },
+                    );
+                  },
                 ),
                 TouchIconButton(
                   icon: Icon(
@@ -424,7 +449,10 @@ class _MobileNavbar extends StatelessWidget {
                     color: colors.textSecondary,
                     size: 18,
                   ),
-                  onPressed: () => showNetworkInfoDialog(context),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    showNetworkInfoDialog(context);
+                  },
                 ),
                 if (onSaveSnapshot != null)
                   TouchIconButton(
@@ -433,7 +461,10 @@ class _MobileNavbar extends StatelessWidget {
                       color: colors.textSecondary,
                       size: 18,
                     ),
-                    onPressed: onSaveSnapshot,
+                    onPressed: () {
+                      FocusScope.of(context).unfocus();
+                      onSaveSnapshot?.call();
+                    },
                   ),
                 if (onExport != null)
                   TouchIconButton(
@@ -442,7 +473,10 @@ class _MobileNavbar extends StatelessWidget {
                       color: colors.textSecondary,
                       size: 18,
                     ),
-                    onPressed: onExport,
+                    onPressed: () {
+                      FocusScope.of(context).unfocus();
+                      onExport?.call();
+                    },
                   ),
                 TouchIconButton(
                   icon: Icon(
@@ -450,7 +484,10 @@ class _MobileNavbar extends StatelessWidget {
                     color: colors.textSecondary,
                     size: 18,
                   ),
-                  onPressed: () => showSettings(),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    showSettings();
+                  },
                 ),
               ],
             ),
@@ -470,12 +507,14 @@ class TargetInputWithHistory extends StatefulWidget {
     required this.colors,
     required this.onChanged,
     required this.width,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
   final AppTypography typography;
   final AppColors colors;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
   final double width;
 
   @override
@@ -484,10 +523,12 @@ class TargetInputWithHistory extends StatefulWidget {
 
 class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
   final FlyoutController _flyoutController = FlyoutController();
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void dispose() {
     _flyoutController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -513,7 +554,10 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
                   child: AutoSuggestBox<String>(
                     key: ValueKey(widget.controller),
                     controller: widget.controller,
+                    focusNode: _focusNode,
                     placeholder: 'IP or domain',
+                    clearButtonEnabled: true,
+                    autofocus: false,
                     items: recent.map((ip) {
                       final saved = TargetDirectory.instance.getSavedTarget(ip);
                       return AutoSuggestBoxItem<String>(
@@ -541,6 +585,8 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
                       if (item.value != null) {
                         widget.controller.text = item.value!;
                         widget.onChanged(item.value!);
+                        widget.onSubmitted?.call(item.value!);
+                        _focusNode.unfocus();
                       }
                     },
                     onChanged: (text, reason) {
@@ -566,6 +612,7 @@ class _TargetInputWithHistoryState extends State<TargetInputWithHistory> {
                     size: 16,
                   ),
                   onPressed: () {
+                    _focusNode.unfocus();
                     TargetDirectory.instance.toggleFavorite(
                       widget.controller.text,
                     );

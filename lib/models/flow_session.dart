@@ -33,6 +33,29 @@ void _useIsolate(List<dynamic> args) async {
   resultPort.send(value);
 }
 
+Future<List<int>> _runPingRoundWithIsolate(String target, List<String> hopIps, int timeoutMs) async {
+  final ReceivePort receivePort = ReceivePort();
+  List<int> result = [];
+  try {
+    await Isolate.spawn(_usePingIsolate, [receivePort.sendPort, target, hopIps, timeoutMs]);
+    result = await receivePort.first;
+  } on Object catch (e) {
+    debugPrint('Ping Isolate Failed: $e');
+    receivePort.close();
+    result = _networkLib.pingAllHopsDirect(target, hopIps, timeoutMs: timeoutMs);
+  }
+  return result;
+}
+
+void _usePingIsolate(List<dynamic> args) {
+  final SendPort resultPort = args[0];
+  final String target = args[1] as String;
+  final List<String> ips = List<String>.from(args[2]);
+  final int timeoutMs = args[3] as int;
+  final results = NetworkLib().pingAllHopsDirect(target, ips, timeoutMs: timeoutMs);
+  resultPort.send(results);
+}
+
 double calculateCumulativeJitter(List<Map<String, dynamic>> hops, int targetIndex) {
   if (targetIndex < 0 || targetIndex >= hops.length) {
     return 0.0;
@@ -78,39 +101,37 @@ String getCurrentTime() {
 /// 4-flow grid) floods the main run loop and freezes the UI.
 class _HopPinger {
   _HopPinger(this.targetIp, {required int timeoutMs}) {
-    _ping = Ping(
-      targetIp,
-      interval: 1,
-      timeout: (timeoutMs / 1000).ceil().clamp(1, 60),
-    );
-    _subscription = _ping.stream.listen((event) {
-      if (event is PingResponse) {
-        lastValue = event.time?.inMilliseconds ?? -1;
-      } else if (event is PingError) {
+    if (!Platform.isIOS) {
+      _ping = Ping(
+        targetIp,
+        interval: 1,
+        timeout: (timeoutMs / 1000).ceil().clamp(1, 60),
+      );
+      _subscription = _ping?.stream.listen((event) {
+        if (event is PingResponse) {
+          lastValue = event.time?.inMilliseconds ?? -1;
+        } else if (event is PingError) {
+          lastValue = -1;
+        }
+        hasResult = true;
+      }, onError: (_) {
         lastValue = -1;
-      }
-      hasResult = true;
-    }, onError: (_) {
-      lastValue = -1;
-      hasResult = true;
-    });
+        hasResult = true;
+      });
+    }
   }
 
   final String targetIp;
-  late final Ping _ping;
-  late final StreamSubscription<PingEvent> _subscription;
+  Ping? _ping;
+  StreamSubscription<PingEvent>? _subscription;
   int lastValue = -1;
 
   /// True once the native pinger has delivered its first reply/timeout.
-  /// Sampling before this point (which can take longer on iOS than
-  /// spawning a subprocess does on desktop) would otherwise record a false
-  /// packet-loss sample for every round the round-loop got to first —
-  /// baking artificial loss into the rolling history right from 0%.
   bool hasResult = false;
 
   void dispose() {
-    _subscription.cancel();
-    _ping.stop();
+    _subscription?.cancel();
+    _ping?.stop();
   }
 }
 
@@ -502,7 +523,9 @@ class FlowSession extends ChangeNotifier {
     for (final stat in ipStats) {
       final targetIp = stat['ip'] as String? ?? '';
       _hopPingers.add(
-        targetIp.isEmpty ? null : _HopPinger(targetIp, timeoutMs: timeoutMs),
+        targetIp.isEmpty || targetIp == '*' || targetIp == '?'
+            ? null
+            : _HopPinger(targetIp, timeoutMs: timeoutMs),
       );
     }
   }
@@ -644,20 +667,25 @@ class FlowSession extends ChangeNotifier {
       final String time = getCurrentTime();
       if (!isRunning || _isDisposed) break;
 
-      // Sample the latest value from each hop's persistent pinger instead of
-      // spawning a fresh native Ping per hop per round (see _HopPinger).
-      // A hop with no pinger result yet is skipped rather than recorded as
-      // loss — the pinger can take longer to deliver its first reply on iOS
-      // than a round takes to come around, and recording -1 in that window
-      // used to bake false 100% packet loss into the rolling history.
-      final List<int?> tempPings = [
-        for (int x = 0; x < ipStats.length; x++)
-          x < _hopPingers.length
-              ? (_hopPingers[x] == null
-                  ? -1
-                  : (_hopPingers[x]!.hasResult ? _hopPingers[x]!.lastValue : null))
-              : -1,
-      ];
+      List<int?> tempPings;
+      if (Platform.isIOS || _networkLib.pingAllHops != null) {
+        final hopIps = [for (final stat in ipStats) stat['ip'] as String? ?? ''];
+        final pings = await _runPingRoundWithIsolate(ip, hopIps, timeoutMs);
+        if (!isRunning || _isDisposed) break;
+        tempPings = [
+          for (int x = 0; x < ipStats.length; x++)
+            x < pings.length ? pings[x] : -1,
+        ];
+      } else {
+        tempPings = [
+          for (int x = 0; x < ipStats.length; x++)
+            x < _hopPingers.length
+                ? (_hopPingers[x] == null
+                    ? -1
+                    : (_hopPingers[x]!.hasResult ? _hopPingers[x]!.lastValue : null))
+                : -1,
+        ];
+      }
       if (!isRunning || _isDisposed) break;
 
       if (deepStats.isNotEmpty) {
@@ -712,7 +740,7 @@ class FlowSession extends ChangeNotifier {
           final double jitter = calculateCumulativeJitter(deepStats, y);
           deepStats[y]['jitter'].add({'time': time, 'value': jitter});
 
-          final num avgPing = count > 0 ? (totalAVG / count).round() : 0;
+          final num avgPing = count > 0 ? (totalAVG / count).round() : -1;
           deepStats[y]['avg'].add({'time': time, 'value': avgPing});
           ipStats[y]['avg'] = avgPing;
 
