@@ -13,9 +13,12 @@ import 'dialogs/network_info_dialog.dart';
 import 'dialogs/settings.dart';
 import 'dialogs/snapshot_dialog.dart';
 import 'dialogs/target_dialog.dart';
+import 'models/app_session.dart';
 import 'models/flow_session.dart';
 import 'models/snapshot.dart';
 import 'models/snapshot_store.dart';
+import 'screens/apps_screen.dart';
+import 'services/app_connection_service.dart';
 import 'widgets/bottom_data.dart';
 import 'widgets/error.dart';
 import 'widgets/graph.dart';
@@ -83,6 +86,10 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   ];
   int _currentIndex = 0;
   ViewMode _viewMode = ViewMode.tabs;
+
+  // App Mode (desktop only): per-application connection tracking.
+  final AppsController _apps = AppsController();
+  bool _showApps = false;
 
   // Animation for statistics overlay
   late AnimationController _statisticsController;
@@ -247,6 +254,7 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _autoSnapshotTimer?.cancel();
+    _apps.dispose();
     for (final flow in _flows) {
       flow.dispose();
     }
@@ -254,6 +262,27 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     _statisticsController.dispose();
     _verticalPaneStackController.dispose();
     super.dispose();
+  }
+
+  void _setViewMode(ViewMode mode) {
+    setState(() {
+      _viewMode = mode;
+      _showApps = false;
+    });
+    _apps.stop();
+  }
+
+  void _showAppsScreen() {
+    setState(() => _showApps = true);
+    _apps.start();
+  }
+
+  /// Promotes an App Mode endpoint to a regular tab. Reuses the expanded
+  /// row's running session when there is one so its history carries over.
+  void _openEndpointAsTab(String ip, FlowSession? flow) {
+    _apps.stop();
+    setState(() => _showApps = false);
+    _addNewFlow(initialIp: ip, autoStart: flow == null, prebuiltFlow: flow);
   }
 
   void _openFlowSettings(FlowSession flow) {
@@ -1358,14 +1387,17 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
+                              Flexible(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
                                 children: [
                                   _ViewModePill(
                                     label: 'Tabs',
                                     icon: FluentIcons.tab,
-                                    isSelected: _viewMode == ViewMode.tabs,
-                                    onTap: () =>
-                                        setState(() => _viewMode = ViewMode.tabs),
+                                    isSelected:
+                                        !_showApps && _viewMode == ViewMode.tabs,
+                                    onTap: () => _setViewMode(ViewMode.tabs),
                                     colors: colors,
                                     type: type,
                                   ),
@@ -1373,10 +1405,10 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   _ViewModePill(
                                     label: '2-Flow Split',
                                     icon: FluentIcons.column_left_two_thirds,
-                                    isSelected: _viewMode == ViewMode.splitTwo,
-                                    onTap: () => setState(
-                                      () => _viewMode = ViewMode.splitTwo,
-                                    ),
+                                    isSelected:
+                                        !_showApps &&
+                                        _viewMode == ViewMode.splitTwo,
+                                    onTap: () => _setViewMode(ViewMode.splitTwo),
                                     colors: colors,
                                     type: type,
                                   ),
@@ -1384,14 +1416,27 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   _ViewModePill(
                                     label: '4-Flow Grid',
                                     icon: FluentIcons.grid_view_medium,
-                                    isSelected: _viewMode == ViewMode.splitGrid,
-                                    onTap: () => setState(
-                                      () => _viewMode = ViewMode.splitGrid,
-                                    ),
+                                    isSelected:
+                                        !_showApps &&
+                                        _viewMode == ViewMode.splitGrid,
+                                    onTap: () => _setViewMode(ViewMode.splitGrid),
                                     colors: colors,
                                     type: type,
                                   ),
+                                  if (AppConnectionService.isSupported) ...[
+                                    const SizedBox(width: 14),
+                                    _ViewModePill(
+                                      label: 'Apps',
+                                      icon: FluentIcons.app_icon_default,
+                                      isSelected: _showApps,
+                                      onTap: _showAppsScreen,
+                                      colors: colors,
+                                      type: type,
+                                    ),
+                                  ],
                                 ],
+                              ),
+                                ),
                               ),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1430,7 +1475,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                         ),
                         // Main Content Area
                         Expanded(
-                          child: _viewMode == ViewMode.tabs
+                          child: _showApps
+                              ? AppsScreen(
+                                  controller: _apps,
+                                  onOpenAsTab: _openEndpointAsTab,
+                                )
+                              : _viewMode == ViewMode.tabs
                               ? TabView(
                                   currentIndex: activeIndex,
                                   onChanged: (index) =>
