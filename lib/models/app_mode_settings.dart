@@ -57,6 +57,8 @@ class AppModeSettings extends ChangeNotifier {
     RowDensity density = RowDensity.comfortable,
     EndpointSort defaultSort = EndpointSort.firstSeen,
     bool rememberSelection = true,
+    // Tests of the tracking mechanics predate the manual start step.
+    bool autoStartTracking = true,
   }) : _persist = false,
        _pollIntervalSec = pollIntervalSec,
        _maxLivePingers = maxLivePingers,
@@ -70,7 +72,8 @@ class AppModeSettings extends ChangeNotifier {
        _lossAlertPercent = lossAlertPercent,
        _density = density,
        _defaultSort = defaultSort,
-       _rememberSelection = rememberSelection;
+       _rememberSelection = rememberSelection,
+       _autoStartTracking = autoStartTracking;
 
   static final AppModeSettings instance = AppModeSettings._();
 
@@ -97,6 +100,7 @@ class AppModeSettings extends ChangeNotifier {
   RowDensity _density = RowDensity.comfortable;
   EndpointSort _defaultSort = EndpointSort.firstSeen;
   bool _rememberSelection = true;
+  bool _autoStartTracking = false;
   List<String> _pinnedAppIds = const [];
   List<String> _selectedAppIds = const [];
 
@@ -124,6 +128,10 @@ class AppModeSettings extends ChangeNotifier {
   RowDensity get density => _density;
   EndpointSort get defaultSort => _defaultSort;
   bool get rememberSelection => _rememberSelection;
+
+  /// When false (the default) an app is only tracked after the user clicks
+  /// Start on it.
+  bool get autoStartTracking => _autoStartTracking;
   List<String> get pinnedAppIds => _pinnedAppIds;
   List<String> get selectedAppIds => _selectedAppIds;
 
@@ -168,6 +176,7 @@ class AppModeSettings extends ChangeNotifier {
           EndpointSort.values.asNameMap()[p.getString('appmode_sort')] ??
           _defaultSort;
       _rememberSelection = p.getBool('appmode_remember') ?? _rememberSelection;
+      _autoStartTracking = p.getBool('appmode_autostart') ?? _autoStartTracking;
       _pinnedAppIds = p.getStringList('appmode_pinned') ?? _pinnedAppIds;
       _selectedAppIds = p.getStringList('appmode_selected') ?? _selectedAppIds;
       notifyListeners();
@@ -273,6 +282,13 @@ class AppModeSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAutoStartTracking(bool v) {
+    if (v == _autoStartTracking) return;
+    _autoStartTracking = v;
+    _save((p) => p.setBool('appmode_autostart', v));
+    notifyListeners();
+  }
+
   void setRememberSelection(bool v) {
     if (v == _rememberSelection) return;
     _rememberSelection = v;
@@ -312,6 +328,7 @@ class AppModeSettings extends ChangeNotifier {
     _density = RowDensity.comfortable;
     _defaultSort = EndpointSort.firstSeen;
     _rememberSelection = true;
+    _autoStartTracking = false;
     _save((p) async {
       for (final key in p.getKeys().where((k) => k.startsWith('appmode_'))) {
         if (key == 'appmode_pinned' || key == 'appmode_selected') continue;

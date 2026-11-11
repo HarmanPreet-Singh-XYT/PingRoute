@@ -169,6 +169,16 @@ class _SettingsDialog extends StatelessWidget {
                 ),
               ),
               _Row(
+                label: 'Start tracking automatically',
+                help:
+                    'Off: open an app and click Start to begin tracking its '
+                    'IPs and stats. On: tracking begins as soon as you pick it.',
+                child: ToggleSwitch(
+                  checked: settings.autoStartTracking,
+                  onChanged: settings.setAutoStartTracking,
+                ),
+              ),
+              _Row(
                 label: 'Remember pinned apps',
                 help: 'Restores your pinned and selected apps next time.',
                 child: ToggleSwitch(

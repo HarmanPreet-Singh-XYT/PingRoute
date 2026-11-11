@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../core/ip_geolocation.dart' show isPrivateIp;
+import 'native_sockets.dart';
 
 /// A single socket owned by a process, as reported by the OS.
 class AppConnection {
@@ -535,6 +536,8 @@ List<AppSnapshot> groupConnectionsByApp(
   List<TrafficFlow>? traffic,
   bool includePrivate = false,
   bool includeUdp = true,
+  bool addUdpFromTraffic = true,
+  bool? trafficAvailable,
 }) {
   final pathByPid = {for (final p in processes) p.pid: p.path};
   final trafficByKey = {
@@ -548,7 +551,7 @@ List<AppSnapshot> groupConnectionsByApp(
           c.withTraffic(f.bytesIn, f.bytesOut)
         else
           c,
-    if (includeUdp)
+    if (includeUdp && addUdpFromTraffic)
       for (final f in traffic ?? const <TrafficFlow>[])
         if (f.protocol == 'UDP')
           AppConnection(
@@ -592,7 +595,8 @@ List<AppSnapshot> groupConnectionsByApp(
     }
   }
 
-  final hasTraffic = traffic != null && traffic.isNotEmpty;
+  final hasTraffic =
+      trafficAvailable ?? (traffic != null && traffic.isNotEmpty);
   final apps = [
     for (final b in byId.values)
       AppSnapshot(
@@ -650,12 +654,27 @@ Future<String> _defaultRunner(String executable, List<String> args) async {
 
 /// Polls the OS for per-application connections.
 class AppConnectionService {
-  AppConnectionService({CommandRunner? runner, String? platform})
-    : _run = runner ?? _defaultRunner,
-      _platform = platform ?? Platform.operatingSystem;
+  /// Uses the bundled native library when it loads, and falls back to the
+  /// platform's command-line tools otherwise. Injecting a [runner] or
+  /// [platform] (tests) selects the command-line path unless [inventory] is
+  /// also given.
+  AppConnectionService({
+    CommandRunner? runner,
+    String? platform,
+    SocketInventory? inventory,
+  }) : _run = runner ?? _defaultRunner,
+       _platform = platform ?? Platform.operatingSystem,
+       _inventory =
+           inventory ??
+           (runner == null && platform == null ? FfiSocketInventory() : null);
 
   final CommandRunner _run;
   final String _platform;
+  final SocketInventory? _inventory;
+
+  // Cumulative CPU time per pid at the previous native poll.
+  Map<int, int> _prevCpuNs = {};
+  DateTime? _prevAt;
 
   /// Desktop operating systems this service can inspect.
   static bool get isSupported =>
@@ -665,6 +684,11 @@ class AppConnectionService {
     bool includePrivate = false,
     bool includeUdp = true,
   }) async {
+    final native = await _pollNative(
+      includePrivate: includePrivate,
+      includeUdp: includeUdp,
+    );
+    if (native != null) return native;
     switch (_platform) {
       case 'macos':
         return _pollUnix(
@@ -683,6 +707,75 @@ class AppConnectionService {
       default:
         return const [];
     }
+  }
+
+  Future<List<AppSnapshot>?> _pollNative({
+    required bool includePrivate,
+    required bool includeUdp,
+  }) async {
+    final inventory = _inventory;
+    if (inventory == null) return null;
+    // macOS has no public per-socket byte counters; nettop still supplies
+    // them, in parallel with the native read.
+    final nettop = _platform == 'macos'
+        ? _run('nettop', [
+            '-n',
+            '-x',
+            '-L',
+            '1',
+            '-t',
+            includePrivate ? 'all' : 'external',
+            '-J',
+            'bytes_in,bytes_out',
+          ])
+        : Future.value('');
+    final snap = await inventory.read();
+    final nettopOut = await nettop;
+    if (snap == null) return null;
+
+    final now = snap.takenAt;
+    final elapsedSec = _prevAt == null
+        ? 0.0
+        : now.difference(_prevAt!).inMicroseconds / 1e6;
+    final nextCpu = <int, int>{};
+    final processes = <RunningProcess>[];
+    for (final p in snap.processes) {
+      nextCpu[p.pid] = p.cpuTimeNs;
+      final prev = _prevCpuNs[p.pid];
+      var cpu = 0.0;
+      if (prev != null && elapsedSec > 0 && p.cpuTimeNs >= prev) {
+        cpu = (p.cpuTimeNs - prev) / 1e9 / elapsedSec * 100;
+      }
+      processes.add(
+        RunningProcess(
+          pid: p.pid,
+          ppid: p.ppid,
+          path: p.path.isNotEmpty ? p.path : p.name,
+          cpuPercent: cpu,
+          rssKb: p.rssKb,
+          elapsed: p.startUnixMs > 0
+              ? now.difference(
+                  DateTime.fromMillisecondsSinceEpoch(p.startUnixMs),
+                )
+              : null,
+        ),
+      );
+    }
+    _prevCpuNs = nextCpu;
+    _prevAt = now;
+
+    final traffic = parseNettop(nettopOut);
+    return groupConnectionsByApp(
+      snap.connections,
+      processes,
+      traffic: traffic,
+      includePrivate: includePrivate,
+      includeUdp: includeUdp,
+      // The native list already contains connected UDP sockets; nettop only
+      // adds their byte counts.
+      addUdpFromTraffic: !snap.capabilities.udpFlows,
+      trafficAvailable: snap.capabilities.connectionBytes || traffic.isNotEmpty,
+    );
   }
 
   Future<List<AppSnapshot>> _pollUnix({

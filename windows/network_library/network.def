@@ -2,3 +2,9 @@ LIBRARY "network"
 EXPORTS
     free_traceroute_array
     get_traceroute_array
+    pr_list_connections
+    pr_list_processes
+    pr_free
+    pr_capabilities
+    pr_connection_size
+    pr_process_size

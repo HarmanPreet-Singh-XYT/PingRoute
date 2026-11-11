@@ -343,6 +343,8 @@
 			inputPaths = (
 				"$(PROJECT_DIR)/network_library/network.c",
 				"$(PROJECT_DIR)/network_library/network.h",
+				"$(PROJECT_DIR)/network_library/sockets_macos.c",
+				"$(PROJECT_DIR)/../native/pr_sockets.h",
 			);
 			name = "Build network_library";
 			outputFileListPaths = (
@@ -352,7 +354,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nclang -dynamiclib -o \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/libnetwork.dylib\" \"${PROJECT_DIR}/network_library/network.c\" -install_name \"@rpath/libnetwork.dylib\"\n";
+			shellScript = "set -e\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nclang -dynamiclib -o \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/libnetwork.dylib\" \"${PROJECT_DIR}/network_library/network.c\" \"${PROJECT_DIR}/network_library/sockets_macos.c\" -install_name \"@rpath/libnetwork.dylib\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

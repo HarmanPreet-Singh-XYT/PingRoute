@@ -7,7 +7,7 @@ project(NetworkLib VERSION 1.0 LANGUAGES C)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # Add the library to be built
-add_library(network SHARED network.c)
+add_library(network SHARED network.c sockets_windows.c)
 
 # Set the output name of the library
 set_target_properties(network PROPERTIES OUTPUT_NAME "network")
@@ -16,7 +16,7 @@ set_target_properties(network PROPERTIES OUTPUT_NAME "network")
 set_target_properties(network PROPERTIES LINK_FLAGS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/network.def")
 
 # Link necessary libraries for Windows networking
-target_link_libraries(network ws2_32 iphlpapi)
+target_link_libraries(network ws2_32 iphlpapi psapi)
 
 # Copy the native traceroute library next to the executable so `flutter run`
 # (which runs the build tree binary directly, not the installed bundle) can

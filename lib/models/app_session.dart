@@ -367,6 +367,7 @@ class AppsController extends ChangeNotifier {
     _lastIncludePrivate = this.settings.includePrivate;
     _lastIncludeUdp = this.settings.includeUdp;
     _lastTrackingMode = this.settings.trackingMode;
+    _lastAutoStart = this.settings.autoStartTracking;
   }
 
   static FlowSession _defaultFlowFactory(String ip) =>
@@ -388,7 +389,10 @@ class AppsController extends ChangeNotifier {
   final Set<String> _pinnedIds = {};
   final Map<String, Map<String, EndpointState>> _endpoints = {};
   final Map<EndpointState, _PingerHandle> _pingers = {};
-  final Set<String> _hostnameRequested = {};
+  // ip -> resolved name (null: no name). Bounded; oldest entries drop first.
+  static const _hostnameCacheLimit = 2000;
+  final Map<String, String?> _hostnameCache = {};
+  final Set<String> _hostnameInFlight = {};
   final Map<String, String> _appNames = {};
   final Map<String, AppViewState> _views = {};
   final List<ActivityEvent> _events = [];
@@ -405,6 +409,8 @@ class AppsController extends ChangeNotifier {
   double _deltaSeconds = 1;
 
   final Set<String> _syncedApps = {};
+  final Set<String> _startedIds = {};
+  late bool _lastAutoStart;
   final Map<String, DateTime> _trackedSince = {};
 
   late Duration _lastPollInterval;
@@ -452,6 +458,62 @@ class AppsController extends ChangeNotifier {
       : {..._selectedIds, ..._pinnedIds};
 
   bool isTracked(String appId) => visibleAppIds.contains(appId);
+
+  /// Apps whose endpoints, pings and stats are actually being collected:
+  /// the ones in view that the user started (or all of them when automatic
+  /// start is on).
+  Set<String> get trackingIds => settings.autoStartTracking
+      ? visibleAppIds
+      : visibleAppIds.intersection(_startedIds);
+
+  bool isTrackingActive(String appId) => trackingIds.contains(appId);
+
+  /// Begins collecting endpoints, pings and stats for [appId].
+  void startTracking(String appId) {
+    if (!visibleAppIds.contains(appId) || !_startedIds.add(appId)) return;
+    _resetAppStats(appId);
+    _afterSelectionChange(remember: false);
+  }
+
+  /// Starts every app currently in view.
+  void startAllTracking() {
+    var any = false;
+    for (final id in visibleAppIds) {
+      if (_startedIds.add(id)) {
+        _resetAppStats(id);
+        any = true;
+      }
+    }
+    if (any) _afterSelectionChange(remember: false);
+  }
+
+  /// Stops collecting for [appId] and discards what was gathered, so the next
+  /// start begins from a clean slate.
+  void stopTracking(String appId) {
+    if (!_startedIds.remove(appId) && !settings.autoStartTracking) return;
+    _discardEndpoints(appId);
+    _resetAppStats(appId);
+    _afterSelectionChange(remember: false);
+  }
+
+  void _discardEndpoints(String appId) {
+    final map = _endpoints.remove(appId);
+    if (map == null) return;
+    for (final ep in map.values) {
+      _stopPinger(ep);
+      ep.flow?.dispose();
+      ep.dispose();
+    }
+  }
+
+  void _resetAppStats(String appId) {
+    _syncedApps.remove(appId);
+    _trackedSince.remove(appId);
+    _sessionIn.remove(appId);
+    _sessionOut.remove(appId);
+    _rateHistory.remove(appId);
+    _latencyTrend.remove(appId);
+  }
 
   String nameFor(String appId) =>
       _appNames[appId] ??
@@ -572,6 +634,14 @@ class AppsController extends ChangeNotifier {
     _lastPingInterval = settings.pingIntervalSec;
     _lastIncludePrivate = settings.includePrivate;
     _lastIncludeUdp = settings.includeUdp;
+
+    if (settings.autoStartTracking != _lastAutoStart) {
+      _lastAutoStart = settings.autoStartTracking;
+      // Turning automatic start off keeps what is already being tracked.
+      if (!_lastAutoStart) _startedIds.addAll(visibleAppIds);
+      _syncEndpoints(_clock());
+      if (isRunning) refresh();
+    }
 
     if (settings.trackingMode != _lastTrackingMode) {
       _lastTrackingMode = settings.trackingMode;
@@ -759,7 +829,7 @@ class AppsController extends ChangeNotifier {
   List<EndpointState> problemEndpoints() {
     final loss = settings.lossAlertPercent;
     final list = [
-      for (final id in visibleAppIds)
+      for (final id in trackingIds)
         for (final e in endpointsFor(id))
           if (e.health(loss).isProblem) e,
     ];
@@ -920,7 +990,7 @@ class AppsController extends ChangeNotifier {
       appCount: list.length,
       endpointCount: ips.length,
       connectionCount: connections,
-      trackedApps: visibleAppIds.length,
+      trackedApps: trackingIds.length,
       stateCounts: states,
       serviceCounts: sortedCounts(services),
       inRate: inRate,
@@ -958,7 +1028,7 @@ class AppsController extends ChangeNotifier {
   }
 
   void _recordLatencyTrend() {
-    for (final appId in visibleAppIds) {
+    for (final appId in trackingIds) {
       final values = [
         for (final e in endpointsFor(appId))
           if (e.isActive) ?e.recentAverageMs,
@@ -981,6 +1051,8 @@ class AppsController extends ChangeNotifier {
 
     final next = <String, (int, int)>{};
     _endpointDeltas.clear();
+    // Rates of apps that have quit must not linger.
+    _appRates.removeWhere((id, _) => !snapshot.any((a) => a.id == id));
     for (final app in snapshot) {
       // Choose-only mode never computes anything for untracked apps.
       if (trackSelectedOnly && !_pinnedIds.contains(app.id)) continue;
@@ -1004,6 +1076,7 @@ class AppsController extends ChangeNotifier {
         outBps: appOut / _deltaSeconds,
       );
       _appRates[app.id] = sample;
+      if (!isTrackingActive(app.id)) continue;
       _sessionIn.update(app.id, (v) => v + appIn, ifAbsent: () => appIn);
       _sessionOut.update(app.id, (v) => v + appOut, ifAbsent: () => appOut);
       if (app.trafficAvailable && usable) {
@@ -1041,7 +1114,7 @@ class AppsController extends ChangeNotifier {
   }
 
   void _syncEndpoints(DateTime now) {
-    for (final appId in visibleAppIds) {
+    for (final appId in trackingIds) {
       final app = snapshotFor(appId);
       final map = _endpoints.putIfAbsent(appId, () => {});
 
@@ -1115,9 +1188,18 @@ class AppsController extends ChangeNotifier {
   }
 
   void _resolveHostname(EndpointState ep) {
-    if (!_hostnameRequested.add(ep.ip)) return;
+    if (_hostnameCache.containsKey(ep.ip)) {
+      ep.setHostname(_hostnameCache[ep.ip]);
+      return;
+    }
+    if (!_hostnameInFlight.add(ep.ip)) return;
     _hostnameResolver(ep.ip).then((name) {
+      _hostnameInFlight.remove(ep.ip);
       if (_disposed) return;
+      _hostnameCache[ep.ip] = name;
+      if (_hostnameCache.length > _hostnameCacheLimit) {
+        _hostnameCache.remove(_hostnameCache.keys.first);
+      }
       // Share the result with every endpoint using the same IP.
       for (final other in _allEndpoints.where((e) => e.ip == ep.ip)) {
         other.setHostname(name);
@@ -1132,7 +1214,7 @@ class AppsController extends ChangeNotifier {
   void _reconcilePingers() {
     final candidates =
         [
-          for (final appId in visibleAppIds)
+          for (final appId in trackingIds)
             for (final ep in endpointsFor(appId))
               if (ep.isActive && !ep.isExpanded) ep,
         ]..sort((a, b) {

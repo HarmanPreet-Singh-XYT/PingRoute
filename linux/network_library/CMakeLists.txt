@@ -13,7 +13,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 set(SOURCE_FILES network.c)
 
 # Shared library — kept for Windows / macOS FFI.
-add_library(network SHARED ${SOURCE_FILES})
+add_library(network SHARED ${SOURCE_FILES} sockets_linux.c)
 set_target_properties(network PROPERTIES VERSION 1.0.0 SOVERSION 1)
 
 # Standalone helper executable for Linux privilege separation.

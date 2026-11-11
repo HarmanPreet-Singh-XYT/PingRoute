@@ -595,8 +595,7 @@ class _StatusBar extends StatelessWidget {
                     controller.isPaused ? 'Paused' : (live ? 'Live' : 'Idle'),
                     'every ${s.pollIntervalSec}s',
                     '${controller.livePingerCount}/${s.maxLivePingers} pings',
-                    if (controller.trackSelectedOnly)
-                      '${controller.visibleAppIds.length} app(s) tracked',
+                    '${controller.trackingIds.length} app(s) tracking',
                     s.includeUdp ? 'TCP + UDP (macOS)' : 'TCP only',
                     if (polled != null)
                       'updated ${DateFormat('HH:mm:ss').format(polled)}',

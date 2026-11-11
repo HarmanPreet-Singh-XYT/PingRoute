@@ -8,6 +8,7 @@ import '../models/app_metrics.dart';
 import '../models/app_mode_settings.dart';
 import '../models/app_session.dart';
 import '../models/flow_session.dart';
+import '../services/app_connection_service.dart' show AppSnapshot;
 import 'app_mode_widgets.dart';
 import 'endpoint_row.dart';
 
@@ -37,6 +38,8 @@ class AppSection extends StatelessWidget {
     final shown = controller.filteredEndpointsFor(appId);
     final settings = controller.settings;
     final pinned = controller.pinnedIds.contains(appId);
+    final active = controller.isTrackingActive(appId);
+    final auto = settings.autoStartTracking;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
@@ -66,9 +69,34 @@ class AppSection extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!active)
+                FilledButton(
+                  onPressed: () => controller.startTracking(appId),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(FluentIcons.play, size: 11),
+                      SizedBox(width: 6),
+                      Text('Start tracking'),
+                    ],
+                  ),
+                )
+              else if (!auto)
+                Button(
+                  onPressed: () => controller.stopTracking(appId),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(FluentIcons.stop, size: 11),
+                      SizedBox(width: 6),
+                      Text('Stop'),
+                    ],
+                  ),
+                ),
+              const SizedBox(width: 4),
               Tooltip(
                 message: controller.trackSelectedOnly
-                    ? 'Stop tracking this app'
+                    ? 'Remove this app from the list'
                     : (pinned ? 'Unpin app' : 'Pin app to keep it tracked'),
                 child: IconButton(
                   icon: Icon(
@@ -101,7 +129,13 @@ class AppSection extends StatelessWidget {
               ),
             ],
           ),
-          if (!view.collapsed) ...[
+          if (!view.collapsed && !active)
+            _StartPanel(
+              appId: appId,
+              controller: controller,
+              snapshot: snapshot,
+            )
+          else if (!view.collapsed) ...[
             _SummaryBlock(appId: appId, controller: controller),
             BlockTitle('Endpoints'),
             _Toolbar(
@@ -483,6 +517,62 @@ class _ActivityLog extends StatelessWidget {
                   ),
                 ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown for an app that is in view but not started yet.
+class _StartPanel extends StatelessWidget {
+  const _StartPanel({
+    required this.appId,
+    required this.controller,
+    required this.snapshot,
+  });
+
+  final String appId;
+  final AppsController controller;
+  final AppSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final type = appTypography(context);
+    final endpoints = snapshot?.endpointCounts.length ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.cardBackground,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colors.borderColor),
+      ),
+      child: Column(
+        children: [
+          Text('Tracking is off', style: type.subtitle),
+          const SizedBox(height: 6),
+          Text(
+            snapshot == null
+                ? 'This app has no network activity right now. '
+                      'You can still start tracking and it will pick up '
+                      'connections as they appear.'
+                : '$endpoints remote endpoint${endpoints == 1 ? '' : 's'} '
+                      'right now. Start tracking to ping them and record '
+                      'traffic, latency and activity.',
+            style: type.caption,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: () => controller.startTracking(appId),
+            child: const Text('Start tracking'),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Turn on "Start tracking automatically" in settings to skip this.',
+            style: type.caption,
+          ),
         ],
       ),
     );

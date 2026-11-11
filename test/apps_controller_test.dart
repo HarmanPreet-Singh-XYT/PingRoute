@@ -86,6 +86,28 @@ class _Harness {
 }
 
 void main() {
+  _manualStartTests();
+
+  test('a re-seen IP gets its cached hostname back after expiring', () async {
+    final h = _Harness([
+      _app('A', ['1.1.1.1']),
+    ], idle: const Duration(seconds: 10));
+    h.controller.selectApp('a');
+    await h.controller.refresh();
+    await Future<void>.delayed(Duration.zero);
+
+    h.service.apps = [_app('A', [])];
+    h.now = h.now.add(const Duration(seconds: 30));
+    await h.controller.refresh();
+    expect(h.controller.endpointsFor('a'), isEmpty);
+
+    h.service.apps = [
+      _app('A', ['1.1.1.1']),
+    ];
+    await h.controller.refresh();
+    expect(h.controller.endpointsFor('a').single.hostname, 'one.one.one.one');
+    h.controller.dispose();
+  });
   test('selecting an app lists one endpoint per distinct IP', () async {
     final h = _Harness([
       _app('Spotify', ['1.1.1.1', '8.8.8.8']),
@@ -361,5 +383,60 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     openedFlow!.dispose();
     h.controller.dispose();
+  });
+}
+
+void _manualStartTests() {
+  AppsController manual(_Harness h) => AppsController(
+    service: h.service,
+    pingerFactory: (ip, _) {
+      final pg = _FakePinger(ip);
+      h.pingers[ip] = pg;
+      return pg;
+    },
+    hostnameResolver: (_) async => null,
+    settings: AppModeSettings.test(autoStartTracking: false),
+    clock: () => h.now,
+  );
+
+  test('selecting an app does not track it until Start is pressed', () async {
+    final h = _Harness([
+      _app('A', ['1.1.1.1', '8.8.8.8']),
+    ]);
+    final c = manual(h);
+    c.start();
+    c.selectApp('a');
+    await c.refresh();
+
+    expect(c.isTrackingActive('a'), isFalse);
+    expect(c.endpointsFor('a'), isEmpty);
+    expect(c.livePingerCount, 0);
+
+    c.startTracking('a');
+    await c.refresh();
+    expect(c.endpointsFor('a'), hasLength(2));
+    expect(c.livePingerCount, 2);
+
+    c.stopTracking('a');
+    expect(c.endpointsFor('a'), isEmpty);
+    expect(c.livePingerCount, 0);
+    expect(h.pingers['1.1.1.1']!.disposed, isTrue);
+    c.dispose();
+  });
+
+  test('turning automatic start on tracks apps in view', () async {
+    final h = _Harness([
+      _app('A', ['1.1.1.1']),
+    ]);
+    final c = manual(h);
+    c.start();
+    c.selectApp('a');
+    await c.refresh();
+    expect(c.endpointsFor('a'), isEmpty);
+
+    c.settings.setAutoStartTracking(true);
+    await c.refresh();
+    expect(c.endpointsFor('a'), hasLength(1));
+    c.dispose();
   });
 }
